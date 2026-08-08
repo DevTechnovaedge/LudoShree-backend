@@ -145,10 +145,7 @@ class KingSyncService
 
         if ($data && ! empty($data['id'])) {
             $this->applyTableSnapshot($data);
-
-            if ($message !== '') {
-                KingEventLog::write('in', 'ResultUpdateRequest', 'info', $message, ['tableId' => $data['id']]);
-            }
+            $this->logResultSyncFromSnapshot($data, $message);
 
             return;
         }
@@ -614,15 +611,22 @@ class KingSyncService
 
     private function applyCompactResultUpdate(string $tableId, string $userId, string $outcome, array $param): void
     {
-        if ($this->isOurPlayerId($userId)) {
-            return;
-        }
-
         $challenge = GameChallenge::query()->where('king_table_id', $tableId)->first();
         if (! $challenge) {
             KingEventLog::write('in', 'ResultUpdateRequest', 'warning',
                 "No local challenge linked to table $tableId", $param);
 
+            return;
+        }
+
+        foreach ([(int) $challenge->challenger_id, (int) $challenge->opponent_id] as $localId) {
+            if ($localId > 0 && ! is_king_ghost_user($localId) && $this->networkPlayerIdsMatch($userId, (string) $localId)) {
+                // Our user already updated locally via the app API.
+                return;
+            }
+        }
+
+        if ($this->isOurPlayerId($userId)) {
             return;
         }
 
@@ -655,8 +659,29 @@ class KingSyncService
 
         $this->settlement->applyRemoteResult($challenge, $outcome);
 
+        $label = $outcome === 'cancel' ? 'Cancel' : ucfirst($outcome);
         KingEventLog::write('in', 'ResultUpdateRequest', 'info',
-            "Applied remote result ($outcome) on table $tableId from player $userId (challenge #{$challenge->id})", $param);
+            "Applied remote {$label} on table $tableId from player $userId (challenge #{$challenge->id})", $param);
+    }
+
+    private function logResultSyncFromSnapshot(array $data, string $message): void
+    {
+        $tableId = (string) ($data['id'] ?? '');
+        $notes = [];
+
+        foreach (['cHistory' => 'creator', 'jHistory' => 'joiner'] as $key => $label) {
+            $outcome = $this->normalizeResult(is_array($data[$key] ?? null) ? ($data[$key]['status'] ?? null) : null);
+            if ($outcome) {
+                $notes[] = "{$label}={$outcome}";
+            }
+        }
+
+        $summary = $message !== '' ? $message : 'Result snapshot applied';
+        if ($notes !== []) {
+            $summary .= ' (' . implode(', ', $notes) . ')';
+        }
+
+        KingEventLog::write('in', 'ResultUpdateRequest', 'info', $summary, ['tableId' => $tableId]);
     }
 
     private function applyResultMediaFromSnapshot(GameChallenge $challenge, array $t): void

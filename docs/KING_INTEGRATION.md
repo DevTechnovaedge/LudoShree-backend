@@ -126,7 +126,8 @@ before expecting the daemon to connect.
 | User cancels a waiting synced table | `KingTableDeleteRequest` |
 | User accepts a synced table | `KingAcceptRequest` confirmed FIRST, then wallet debit + opponent set |
 | Challenger sets room code | `KingUpdateCodeRequest` |
-| User submits Win / Loss / Cancel | `ResultUpdateRequest` (with screenshot URL) |
+| User submits Win / Loss / Cancel | `ResultUpdateRequest` (`result`: Win / Loss / Cancel, optional image + video URLs) |
+| User cancels a running synced game | `ResultUpdateRequest` with `Cancel` for the acting user (waiting tables use delete instead) |
 | Admin resolves result / cancels / suspends | `ResultUpdateRequest` / `KingTableDeleteRequest` |
 
 | Remote event (from King) | What happens locally |

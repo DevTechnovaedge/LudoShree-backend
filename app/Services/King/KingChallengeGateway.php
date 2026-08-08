@@ -166,9 +166,21 @@ class KingChallengeGateway
                 case 'cancel':
                     if ($challenge->isKingLinked()) {
                         if (! $challenge->opponent_id) {
+                            // Waiting table — no match yet; remove from the network.
                             $this->outbox->enqueueDeleteTable($challenge);
-                        } else {
-                            $this->pushSideResults($challenge);
+                        } elseif ($user && ! is_king_ghost_user($user->id)) {
+                            // Running / disputed game — report Cancel to the King network
+                            // so the other platform's status updates via ResultUpdateRequest.
+                            $side = (int) $user->id === (int) $challenge->challenger_id
+                                ? 'challenger'
+                                : 'opponent';
+                            $this->outbox->enqueueResult(
+                                $challenge,
+                                (int) $user->id,
+                                'Cancel',
+                                $this->screenshotUrl($challenge, $side),
+                                request()->input('proof_video') ?: request()->input('video')
+                            );
                         }
                     }
                     break;

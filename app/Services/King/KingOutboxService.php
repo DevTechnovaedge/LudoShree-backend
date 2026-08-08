@@ -85,8 +85,20 @@ class KingOutboxService
     /**
      * @param  string  $result  Win | Loss | Cancel
      */
-    public function enqueueResult(GameChallenge $challenge, int $localUserId, string $result, ?string $imageUrl = null): ?KingOutbox
-    {
+    public function enqueueResult(
+        GameChallenge $challenge,
+        int $localUserId,
+        string $result,
+        ?string $imageUrl = null,
+        ?string $videoUrl = null
+    ): ?KingOutbox {
+        $result = match (strtolower(trim($result))) {
+            'win' => 'Win',
+            'loss', 'lose', 'loser' => 'Loss',
+            'cancel', 'cancelled' => 'Cancel',
+            default => trim($result),
+        };
+
         // Idempotent per (challenge, user, result). A different result is
         // allowed (e.g. admin resolves a dispute) and supersedes the old one.
         $last = KingOutbox::query()
@@ -102,12 +114,17 @@ class KingOutboxService
         }
 
         $payload = [
+            'tableId' => (string) ($challenge->king_table_id ?? ''),
             'userId' => (string) $localUserId,
             'result' => $result,
         ];
 
         if ($imageUrl) {
             $payload['image'] = $imageUrl;
+        }
+
+        if ($videoUrl && str_starts_with(trim($videoUrl), 'http')) {
+            $payload['video'] = trim($videoUrl);
         }
 
         return KingOutbox::create([
