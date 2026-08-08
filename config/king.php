@@ -38,6 +38,11 @@ return [
     // room join / reconnect and apply real-time King server pushes otherwise.
     'table_poll_interval' => (int) env('KING_TABLE_POLL_INTERVAL', 0),
 
+    // Safety poll while a cross-platform game is running / awaiting result
+    // (the King server does not push remote result updates). Only used when
+    // table_poll_interval is 0. Set 0 to disable entirely.
+    'active_poll_interval' => (int) env('KING_ACTIVE_POLL_INTERVAL', 15),
+
     // How often the daemon checks king_outbox for pending messages (seconds).
     'outbox_interval' => (float) env('KING_OUTBOX_INTERVAL', 0.25),
 

@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\GameChallenge\GameChallenge;
 use App\Models\King\KingEventLog;
 use App\Models\King\KingOutbox;
 use App\Services\King\KingSyncService;
@@ -176,6 +177,30 @@ class KingListen extends Command
         if ($pollInterval > 0) {
             $this->timers[] = $loop->addPeriodicTimer(max(5, $pollInterval), function () {
                 if ($this->joinedRoom && ! $this->isPaused()) {
+                    $this->send('GetKingTableListReq', []);
+                }
+            });
+        }
+
+        # Result-safety poll: the King server does not broadcast remote
+        # ResultUpdateRequest pushes, so while a cross-platform game is
+        # running (or waiting for our user's result) we poll the list to pick
+        # up the other platform's result. Idle = no polling at all.
+        $activePoll = (int) config('king.active_poll_interval', 15);
+        if ($activePoll > 0 && $pollInterval <= 0) {
+            $this->timers[] = $loop->addPeriodicTimer(max(10, $activePoll), function () {
+                if (! $this->joinedRoom || $this->isPaused()) {
+                    return;
+                }
+
+                $hasActiveKingGame = $this->db(function () {
+                    return GameChallenge::query()
+                        ->whereNotNull('king_table_id')
+                        ->whereIn('status', [1, 8])
+                        ->exists();
+                }, false);
+
+                if ($hasActiveKingGame) {
                     $this->send('GetKingTableListReq', []);
                 }
             });
