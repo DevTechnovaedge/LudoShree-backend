@@ -34,8 +34,9 @@ return [
     // Heartbeat interval in seconds (doc recommends 8-10s).
     'ping_interval' => (int) env('KING_PING_INTERVAL', 8),
 
-    // Full table list reconciliation interval in seconds.
-    'table_poll_interval' => (int) env('KING_TABLE_POLL_INTERVAL', 10),
+    // Optional full table list poll (seconds). 0 = disabled — we only fetch on
+    // room join / reconnect and apply real-time King server pushes otherwise.
+    'table_poll_interval' => (int) env('KING_TABLE_POLL_INTERVAL', 0),
 
     // How often the daemon checks king_outbox for pending messages (seconds).
     'outbox_interval' => (float) env('KING_OUTBOX_INTERVAL', 0.25),

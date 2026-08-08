@@ -121,6 +121,49 @@ class KingSyncService
         } else {
             $this->applyToRemoteTable($challenge, $t, $joinedById, $roomCode, $creatorResult);
         }
+
+        $challenge->refresh();
+        $this->applyResultMediaFromSnapshot($challenge, $t);
+    }
+
+    /**
+     * Inbound ResultUpdateRequest from the King network — another platform
+     * reported Win/Loss/Cancel (optional image/video URLs), or the success
+     * response after our own outbox send.
+     */
+    public function handleResultUpdateRequest(array $param): void
+    {
+        $ok = array_key_exists('status', $param) ? (bool) $param['status'] : true;
+        $message = (string) ($param['message'] ?? '');
+        $data = is_array($param['data'] ?? null) ? $param['data'] : null;
+
+        if (! $ok && ! $data) {
+            KingEventLog::write('in', 'ResultUpdateRequest', 'warning', $message ?: 'Result update rejected', $param);
+
+            return;
+        }
+
+        if ($data && ! empty($data['id'])) {
+            $this->applyTableSnapshot($data);
+
+            if ($message !== '') {
+                KingEventLog::write('in', 'ResultUpdateRequest', 'info', $message, ['tableId' => $data['id']]);
+            }
+
+            return;
+        }
+
+        $tableId = (string) ($param['tableId'] ?? '');
+        $userId = (string) ($param['userId'] ?? '');
+        $outcome = $this->normalizeResultParam($param['result'] ?? null);
+
+        if ($tableId === '' || $userId === '' || ! $outcome) {
+            KingEventLog::write('in', 'ResultUpdateRequest', 'warning', 'Incomplete result update payload', $param);
+
+            return;
+        }
+
+        $this->applyCompactResultUpdate($tableId, $userId, $outcome, $param);
     }
 
     /**
@@ -148,7 +191,7 @@ class KingSyncService
 
         // Waiting tables that are no longer on the network.
         $missing = KingTable::query()
-            ->where('status', 'Pending')
+            ->whereRaw('LOWER(status) = ?', ['pending'])
             ->whereNotIn('king_table_id', array_filter($seenIds))
             ->get();
 
@@ -159,6 +202,16 @@ class KingSyncService
                 Log::error('[King] missing table handling failed', ['table' => $mirror->king_table_id, 'error' => $e->getMessage()]);
             }
         }
+
+        try {
+            $backfilled = $this->backfillUnlinkedRemoteMirrors();
+            if ($backfilled > 0) {
+                KingEventLog::write('sys', 'GetKingTableListReq', 'info',
+                    "Backfilled {$backfilled} unlinked Daddy King waiting table(s) into game challenges.");
+            }
+        } catch (\Throwable $e) {
+            Log::error('[King] backfillUnlinkedRemoteMirrors failed', ['error' => $e->getMessage()]);
+        }
     }
 
     public function handleTableRemoved(string $kingTableId): void
@@ -168,7 +221,7 @@ class KingSyncService
             return;
         }
 
-        if ($mirror->status === 'Pending') {
+        if ($this->isKingWaitingStatus($mirror->status)) {
             $this->handleMissingPendingTable($mirror);
         } else {
             $mirror->status = 'Deleted';
@@ -289,10 +342,13 @@ class KingSyncService
                 break;
 
             case 'KingUpdateCodeRequest':
-            case 'ResultUpdateRequest':
                 if ($data) {
                     $this->applyTableSnapshot($data);
                 }
+                break;
+
+            case 'ResultUpdateRequest':
+                $this->handleResultUpdateRequest($param);
                 break;
         }
 
@@ -385,7 +441,7 @@ class KingSyncService
 
         // Remote table still waiting for a player -> mirror it as a joinable
         // local challenge with a ghost challenger.
-        if (($t['status'] ?? '') === 'Pending' && king_enabled()) {
+        if ($this->isKingWaitingStatus($t['status'] ?? null) && king_enabled()) {
             return $this->createChallengeFromRemoteTable($mirror, $t);
         }
 
@@ -399,10 +455,9 @@ class KingSyncService
             return null;
         }
 
-        $min = (float) (site_setting()->minimum_game_play_amount ?? 0);
-        $max = (float) (site_setting()->maximum_game_play_amount ?? 0);
-
-        if (($min > 0 && $amount < $min) || ($max > 0 && $amount > $max)) {
+        if (! $this->isAmountAllowedForImport($amount)) {
+            $min = (float) (site_setting()->minimum_game_play_amount ?? 0);
+            $max = (float) (site_setting()->maximum_game_play_amount ?? 0);
             KingEventLog::write('sys', null, 'info',
                 "Skipped remote table {$mirror->king_table_id}: amount $amount outside platform limits ($min - $max)");
 
@@ -550,5 +605,207 @@ class KingSyncService
         }
 
         return null;
+    }
+
+    private function normalizeResultParam($result): ?string
+    {
+        return $this->normalizeResult($result);
+    }
+
+    private function applyCompactResultUpdate(string $tableId, string $userId, string $outcome, array $param): void
+    {
+        if ($this->isOurPlayerId($userId)) {
+            return;
+        }
+
+        $challenge = GameChallenge::query()->where('king_table_id', $tableId)->first();
+        if (! $challenge) {
+            KingEventLog::write('in', 'ResultUpdateRequest', 'warning',
+                "No local challenge linked to table $tableId", $param);
+
+            return;
+        }
+
+        $mirror = KingTable::query()->where('king_table_id', $tableId)->first();
+        $createdBy = (string) ($mirror?->created_by_id ?? '');
+        $joinedBy = (string) ($mirror?->joined_by_id ?? '');
+
+        $ghostSide = null;
+        if ($this->networkPlayerIdsMatch($userId, $createdBy) && is_king_ghost_user($challenge->challenger_id)) {
+            $ghostSide = 'challenger';
+        } elseif ($joinedBy !== '' && $this->networkPlayerIdsMatch($userId, $joinedBy) && is_king_ghost_user($challenge->opponent_id)) {
+            $ghostSide = 'opponent';
+        } elseif (is_king_ghost_user($challenge->challenger_id) && ! is_king_ghost_user($challenge->opponent_id)) {
+            $ghostSide = 'challenger';
+        } elseif ($challenge->opponent_id && is_king_ghost_user($challenge->opponent_id) && ! is_king_ghost_user($challenge->challenger_id)) {
+            $ghostSide = 'opponent';
+        }
+
+        if (! $ghostSide) {
+            KingEventLog::write('in', 'ResultUpdateRequest', 'warning',
+                "Could not map result user $userId to a ghost side on table $tableId", $param);
+
+            return;
+        }
+
+        $this->storeRemoteProof($challenge, $ghostSide, [
+            'image' => $param['image'] ?? null,
+            'video' => $param['video'] ?? null,
+        ]);
+
+        $this->settlement->applyRemoteResult($challenge, $outcome);
+
+        KingEventLog::write('in', 'ResultUpdateRequest', 'info',
+            "Applied remote result ($outcome) on table $tableId from player $userId (challenge #{$challenge->id})", $param);
+    }
+
+    private function applyResultMediaFromSnapshot(GameChallenge $challenge, array $t): void
+    {
+        if (is_king_ghost_user($challenge->challenger_id)) {
+            $this->storeRemoteProof($challenge, 'challenger', is_array($t['cHistory'] ?? null) ? $t['cHistory'] : []);
+        }
+
+        if ($challenge->opponent_id && is_king_ghost_user($challenge->opponent_id)) {
+            $this->storeRemoteProof($challenge, 'opponent', is_array($t['jHistory'] ?? null) ? $t['jHistory'] : []);
+        }
+    }
+
+    /**
+     * @param  array{image?: mixed, video?: mixed}  $history
+     */
+    private function storeRemoteProof(GameChallenge $challenge, string $side, array $history): void
+    {
+        $image = trim((string) ($history['image'] ?? ''));
+        $video = trim((string) ($history['video'] ?? ''));
+
+        if ($image === '' && $video === '') {
+            return;
+        }
+
+        $screenshotField = $side === 'challenger' ? 'challenger_screenshot' : 'opponent_screenshot';
+        $remarkField = $side === 'challenger' ? 'challenger_remark' : 'opponent_remark';
+        $changed = false;
+
+        if ($image !== '' && str_starts_with($image, 'http') && ! $challenge->{$screenshotField}) {
+            $challenge->{$screenshotField} = $image;
+            $changed = true;
+        }
+
+        if ($video !== '' && str_starts_with($video, 'http')) {
+            $tag = 'DK video: ' . $video;
+            $existing = trim((string) ($challenge->{$remarkField} ?? ''));
+            if (! str_contains($existing, $video)) {
+                $challenge->{$remarkField} = $existing === '' ? $tag : $existing . ' | ' . $tag;
+                $changed = true;
+            }
+        }
+
+        if ($changed) {
+            $challenge->saveQuietly();
+        }
+    }
+
+    private function networkPlayerIdsMatch(string $needle, string $networkId): bool
+    {
+        $needle = trim($needle);
+        $networkId = trim($networkId);
+
+        if ($needle === '' || $networkId === '') {
+            return false;
+        }
+
+        if ($needle === $networkId) {
+            return true;
+        }
+
+        if (str_ends_with($networkId, '-' . $needle)) {
+            return true;
+        }
+
+        $client = $this->ourClientId();
+        if ($client !== '' && $networkId === $client . '-' . $needle) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Import remote King tables that were mirrored but never linked to a
+     * joinable local challenge (e.g. after a bad min/max site setting).
+     */
+    public function backfillUnlinkedRemoteMirrors(): int
+    {
+        if (! king_enabled()) {
+            return 0;
+        }
+
+        $count = 0;
+
+        $mirrors = KingTable::query()
+            ->where('origin', 'remote')
+            ->whereNull('game_challenge_id')
+            ->whereRaw('LOWER(status) = ?', ['pending'])
+            ->whereNull('joined_by_id')
+            ->get();
+
+        foreach ($mirrors as $mirror) {
+            try {
+                $t = json_decode($mirror->raw ?? '{}', true);
+                if (! is_array($t) || ! $this->isKingWaitingStatus($t['status'] ?? $mirror->status)) {
+                    continue;
+                }
+
+                $challenge = $this->createChallengeFromRemoteTable($mirror, $t);
+                if (! $challenge) {
+                    continue;
+                }
+
+                $mirror->game_challenge_id = $challenge->id;
+                $mirror->save();
+                $count++;
+            } catch (\Throwable $e) {
+                Log::error('[King] backfill failed', ['table' => $mirror->king_table_id, 'error' => $e->getMessage()]);
+            }
+        }
+
+        return $count;
+    }
+
+    private function isKingWaitingStatus(?string $status): bool
+    {
+        return strtolower(trim((string) $status)) === 'pending';
+    }
+
+    private function isAmountAllowedForImport(float $amount): bool
+    {
+        if ($amount <= 0) {
+            return false;
+        }
+
+        $min = (float) (site_setting()->minimum_game_play_amount ?? 0);
+        $max = (float) (site_setting()->maximum_game_play_amount ?? 0);
+
+        // Admin misconfiguration (min > max): enforce max only so imports are not blocked entirely.
+        if ($min > 0 && $max > 0 && $min > $max) {
+            static $loggedMisconfig = false;
+            if (! $loggedMisconfig) {
+                $loggedMisconfig = true;
+                KingEventLog::write('sys', null, 'warning',
+                    "Platform game amount limits misconfigured (min $min > max $max). Using max-only validation for King imports.");
+            }
+
+            return $max <= 0 || $amount <= $max;
+        }
+
+        if ($min > 0 && $amount < $min) {
+            return false;
+        }
+
+        if ($max > 0 && $amount > $max) {
+            return false;
+        }
+
+        return true;
     }
 }

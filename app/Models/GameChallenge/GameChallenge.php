@@ -101,6 +101,10 @@ class GameChallenge extends Model
     }
 
     public function getChallengerScreenshotUrlAttribute(){
+        if ($this->challenger_screenshot && str_starts_with($this->challenger_screenshot, 'http')) {
+            return $this->challenger_screenshot;
+        }
+
         if($this->challenger_status == 3 && $this->challenger_screenshot):
             return asset("storage/proof/cancel/$this->uid/$this->challenger_screenshot");
         else:
@@ -109,6 +113,10 @@ class GameChallenge extends Model
     }
 
     public function getOpponentScreenshotUrlAttribute(){
+        if ($this->opponent_screenshot && str_starts_with($this->opponent_screenshot, 'http')) {
+            return $this->opponent_screenshot;
+        }
+
         if($this->opponent_status == 3 && $this->opponent_screenshot):
             return asset("storage/proof/cancel/$this->uid/$this->opponent_screenshot");
         else:

@@ -171,12 +171,15 @@ class KingListen extends Command
             $this->pumpOutbox();
         });
 
-        # Table list reconciliation
-        $this->timers[] = $loop->addPeriodicTimer(max(5, (int) config('king.table_poll_interval', 10)), function () {
-            if ($this->joinedRoom && ! $this->isPaused()) {
-                $this->send('GetKingTableListReq', []);
-            }
-        });
+        # Optional table list reconciliation (off by default — King pushes updates).
+        $pollInterval = (int) config('king.table_poll_interval', 0);
+        if ($pollInterval > 0) {
+            $this->timers[] = $loop->addPeriodicTimer(max(5, $pollInterval), function () {
+                if ($this->joinedRoom && ! $this->isPaused()) {
+                    $this->send('GetKingTableListReq', []);
+                }
+            });
+        }
 
         # Watchdog: in-flight timeouts + dead connection detection
         $this->timers[] = $loop->addPeriodicTimer(1, function () {
@@ -332,6 +335,17 @@ class KingListen extends Command
                 $this->db(fn () => $this->sync->reconcileList($tables));
 
                 return;
+        }
+
+        # Remote (or our) result updates — Win / Loss / Cancel + proof URLs.
+        if ($uri === 'ResultUpdateRequest') {
+            if ($this->inflight && $this->inflight->event === 'ResultUpdateRequest' && $this->matchesInflight($param)) {
+                $this->resolveInflight($param);
+            } else {
+                $this->db(fn () => $this->sync->handleResultUpdateRequest($param));
+            }
+
+            return;
         }
 
         # Response to our in-flight outbox message?

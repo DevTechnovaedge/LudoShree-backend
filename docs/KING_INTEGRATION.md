@@ -134,6 +134,7 @@ before expecting the daemon to connect.
 | New table on another platform | Ghost user + waiting challenge created (shows in app lobby, name suffix `[DK]`) |
 | Remote player joins OUR table | Ghost opponent attached, status Running (no local debit for the ghost) |
 | Remote creator sets room code | Room code stored, app notified |
+| **`ResultUpdateRequest` push** | Dedicated listener in `king:listen` → `handleResultUpdateRequest()` applies Win/Loss/Cancel + remote image/video URLs |
 | Remote result Win | Ghost side marked winner; local user can still submit; both-claim-win = Dispute (admin) |
 | Remote result Loss | Ghost side marked loser; local winner paid `paid_amount` (idempotent, one time only) |
 | Remote result Cancel | Local stakes refunded when mutual / not started |
