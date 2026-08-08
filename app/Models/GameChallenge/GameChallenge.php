@@ -88,16 +88,45 @@ class GameChallenge extends Model
             return '';
         }
 
-        $label = $this->game_source === 'daddy_king' ? 'DK Remote' : 'DK Sync';
+        $isRemote = $this->game_source === 'daddy_king';
+        $variant = $isRemote ? 'is-remote' : 'is-sync';
+        $label = $isRemote ? 'Daddy King' : 'DK Linked';
+        $sub = $isRemote ? 'Remote' : 'Synced';
         $tableId = $this->king_table_id ? e((string) $this->king_table_id) : '';
         $title = $tableId !== '' ? " title=\"{$tableId}\"" : '';
 
-        $html = "<span class=\"badge badge-info king-challenge-badge\"{$title}>{$label}</span>";
+        $crown = '<svg class="king-badge-crown" viewBox="0 0 24 24" aria-hidden="true">'
+            .'<path d="M3.5 9.5l3.2 2.1L9.8 5.8 12 10l2.2-4.2 3.1 5.8 3.2-2.1L19.2 18H4.8L3.5 9.5z" fill="currentColor"/>'
+            .'<rect x="4.5" y="18.5" width="15" height="2.2" rx="1.1" fill="currentColor"/>'
+            .'</svg>';
+
+        $html = "<span class=\"king-challenge-badge {$variant}\"{$title}>"
+            ."<span class=\"king-badge-icon\">{$crown}</span>"
+            ."<span class=\"king-badge-copy\">"
+            ."<span class=\"king-badge-title\">{$label}</span>"
+            ."<span class=\"king-badge-sub\">{$sub}</span>"
+            .'</span></span>';
+
         if ($tableId !== '') {
-            $html .= " <small class=\"text-muted king-table-id\">{$tableId}</small>";
+            $html .= " <small class=\"king-table-id\">{$tableId}</small>";
         }
 
         return $html;
+    }
+
+    /**
+     * Small crown chip for ghost / network players in admin columns.
+     */
+    public function kingPlayerBadgeHtml(): string
+    {
+        $crown = '<svg class="king-badge-crown" viewBox="0 0 24 24" aria-hidden="true">'
+            .'<path d="M3.5 9.5l3.2 2.1L9.8 5.8 12 10l2.2-4.2 3.1 5.8 3.2-2.1L19.2 18H4.8L3.5 9.5z" fill="currentColor"/>'
+            .'<rect x="4.5" y="18.5" width="15" height="2.2" rx="1.1" fill="currentColor"/>'
+            .'</svg>';
+
+        return '<span class="king-player-badge" title="Daddy King network player">'
+            ."<span class=\"king-badge-icon\">{$crown}</span>"
+            .'<span>DK Player</span></span>';
     }
 
     /**
@@ -401,7 +430,7 @@ class GameChallenge extends Model
         $game_details    =      "<div class='py-1'>".$this->challenger->name."</div>";
         $game_details    .=     "<div class='py-1'><small>( UID : <a href='$edit_route' target='_blank'>$uid</a> )</small></div>";
         if (is_king_ghost_user($this->challenger_id)) {
-            $game_details .= "<div class='py-1'><span class='badge badge-info king-challenge-badge'>DK Player</span></div>";
+            $game_details .= "<div class='py-1'>{$this->kingPlayerBadgeHtml()}</div>";
         }
         $game_details    .=     "<div class='py-1'>$game_result</div>";
         
@@ -467,7 +496,7 @@ class GameChallenge extends Model
             $game_details    =      "<div class='py-1'>".$this->opponent->name."</div>";
             $game_details    .=     "<div class='py-1'><small>( UID : <a href='$edit_route' target='_blank'>$uid</a> )</small></div>";
             if (is_king_ghost_user($this->opponent_id)) {
-                $game_details .= "<div class='py-1'><span class='badge badge-info king-challenge-badge'>DK Player</span></div>";
+                $game_details .= "<div class='py-1'>{$this->kingPlayerBadgeHtml()}</div>";
             }
             $game_details    .=     "<div class='py-1'>$game_result</div>";
             

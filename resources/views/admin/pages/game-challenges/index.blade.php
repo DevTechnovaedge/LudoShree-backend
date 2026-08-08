@@ -23,16 +23,90 @@
 	@endif
 
 	.king-challenge-badge{
-		background: #0d6efd;
+		display: inline-flex;
+		align-items: center;
+		gap: 7px;
+		padding: 5px 10px 5px 7px;
+		border-radius: 999px;
 		color: #fff;
-		font-size: 11px;
-		font-weight: 600;
-		letter-spacing: .3px;
-		padding: 3px 7px;
-		border-radius: 3px;
 		vertical-align: middle;
+		box-shadow: 0 6px 14px rgba(15, 23, 42, .18);
+		border: 1px solid rgba(255,255,255,.28);
+		line-height: 1.1;
+		max-width: 100%;
 	}
-	.king-table-id{ font-size: 10px; }
+	.king-challenge-badge.is-sync{
+		background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 55%, #1d4ed8 100%);
+	}
+	.king-challenge-badge.is-remote{
+		background: linear-gradient(135deg, #f59e0b 0%, #ea580c 48%, #c2410c 100%);
+	}
+	.king-badge-icon{
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		width: 22px;
+		height: 22px;
+		border-radius: 50%;
+		background: rgba(255,255,255,.18);
+		box-shadow: inset 0 0 0 1px rgba(255,255,255,.25);
+		flex: 0 0 auto;
+	}
+	.king-badge-crown{
+		width: 13px;
+		height: 13px;
+		color: #fff7cc;
+		filter: drop-shadow(0 1px 1px rgba(0,0,0,.25));
+	}
+	.king-badge-copy{
+		display: inline-flex;
+		flex-direction: column;
+		gap: 1px;
+		min-width: 0;
+	}
+	.king-badge-title{
+		font-size: 11px;
+		font-weight: 800;
+		letter-spacing: .35px;
+		text-transform: uppercase;
+		white-space: nowrap;
+	}
+	.king-badge-sub{
+		font-size: 9px;
+		font-weight: 600;
+		opacity: .88;
+		letter-spacing: .2px;
+		text-transform: uppercase;
+	}
+	.king-player-badge{
+		display: inline-flex;
+		align-items: center;
+		gap: 5px;
+		padding: 3px 8px 3px 5px;
+		border-radius: 999px;
+		background: linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%);
+		color: #fff;
+		font-size: 10px;
+		font-weight: 700;
+		letter-spacing: .25px;
+		box-shadow: 0 4px 10px rgba(79, 70, 229, .28);
+		border: 1px solid rgba(255,255,255,.22);
+	}
+	.king-player-badge .king-badge-icon{
+		width: 18px;
+		height: 18px;
+	}
+	.king-player-badge .king-badge-crown{
+		width: 11px;
+		height: 11px;
+	}
+	.king-table-id{
+		display: inline-block;
+		margin-top: 3px;
+		font-size: 10px;
+		color: #64748b;
+		font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+	}
 
 </style>
 @endsection
