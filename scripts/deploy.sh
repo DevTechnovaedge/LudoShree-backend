@@ -34,4 +34,19 @@ php artisan view:cache || true
 echo "==> Fixing storage permissions"
 chmod -R ug+rwx storage bootstrap/cache || true
 
+echo "==> King WebSocket daemon (king:listen)"
+if command -v supervisorctl >/dev/null 2>&1; then
+  if supervisorctl status king-listen >/dev/null 2>&1; then
+    supervisorctl restart king-listen
+    echo "    restarted king-listen via supervisor"
+  else
+    echo "    WARNING: king-listen is not registered in supervisor yet."
+    echo "    Run once on the server (with sudo):"
+    echo "      sudo bash ${APP_DIR}/scripts/setup-king-supervisor.sh"
+  fi
+else
+  echo "    WARNING: supervisorctl not found; king:listen was not restarted."
+  echo "    Install supervisor and run scripts/setup-king-supervisor.sh"
+fi
+
 echo "==> Deploy complete at $(git rev-parse --short HEAD)"

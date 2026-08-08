@@ -92,10 +92,31 @@ stopwaitsecs=10
 ```
 
 ```bash
-supervisorctl reread && supervisorctl update && supervisorctl start king-listen
+sudo bash /var/www/html/ludo-shree/scripts/setup-king-supervisor.sh
 ```
 
+Or copy `scripts/supervisor/king-listen.conf` manually to `/etc/supervisor/conf.d/`
+then `supervisorctl reread && supervisorctl update && supervisorctl start king-listen`.
+
 IMPORTANT: run exactly ONE instance of `king:listen`.
+
+### e) GitHub Actions deploy (already wired)
+
+Pushes to `main` run `.github/workflows/deploy.yml`, which executes
+`scripts/deploy.sh`. After each deploy the script:
+
+- runs `php artisan migrate --force` (King tables/columns)
+- rebuilds config cache (picks up `.env` King keys)
+- **`supervisorctl restart king-listen`** when the program is registered
+
+One-time on the server (before the first successful daemon restart):
+
+```bash
+sudo bash /var/www/html/ludo-shree/scripts/setup-king-supervisor.sh
+```
+
+Ensure `.env` on the server has `KING_WS_ENABLED=true` and Daddy King credentials
+before expecting the daemon to connect.
 
 ## 3. Flow summary
 

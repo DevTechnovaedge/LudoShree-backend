@@ -28,3 +28,5 @@ jobs:
           command_timeout: 10m
           script: |
             bash /var/www/html/ludo-shree/scripts/deploy.sh
+            # deploy.sh runs migrate, config:cache, and restarts king:listen (Supervisor)
+            # First-time only on server: sudo bash .../scripts/setup-king-supervisor.sh
