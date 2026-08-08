@@ -1,0 +1,272 @@
+.theme-container {
+    max-width: calc(100vw - 100px) !important;
+    margin: auto;
+}
+
+.custom-select {
+    margin-bottom: 1rem;
+}
+
+
+.header-menus-start {
+    margin: 0;
+}
+
+#navbarSupportedContent ul.navbar-nav li.nav-item .nav-link{ font-size: 12px; }
+
+.header-menus li.nav-item.active {
+    padding: 5px;
+}
+
+.site-content {
+    width: 100%;
+    padding: 0 1rem;
+}
+
+
+header #top-header {
+    height: 100%;
+}
+
+.box-row { 
+    width: 100%;
+    padding: 1rem 1.5rem;
+    padding-bottom: 0;
+ }
+.box-row .box {
+    width: 50% !important;
+    height: 50px !important;
+}
+
+header #top-header .box-one{ margin: 0;}
+.header-menus li.nav-item.logo-item {
+    width: 210px;
+}
+
+
+.student-corner-info .student-corner-image-box{ width: 100%;}
+
+
+#fee-payment-page .new-student-content{
+    padding-top: 2rem !important;
+}
+
+#admission-process-page .bg-top-header-banner{
+    width: 100%;
+}
+
+#admission-process-page .top-header{
+    height: auto;
+}
+
+#admission-process-page .floating-content {
+    padding: 12rem 2rem 6rem 2rem;
+}
+
+
+footer .footer-top .site-name {
+    font-size: 3vw !important;
+}
+
+footer .footer-top .box{
+    margin-top: 1rem  !important;
+    width: 100% !important;
+}
+
+footer .footer-top .logo-col{
+    width: 100% !important;
+    text-align: center !important;
+    margin-bottom: 1rem !important;
+}
+
+footer .footer-main .footer-first-column, footer .footer-main .footer-second-column, footer .footer-main .footer-third-column, footer .footer-main .footer-fourth-column{
+    width: 25%  !important;
+}
+footer .footer-main .footer-social-links li {
+    padding: 0 !important;
+}
+
+section#organization-chart-section {
+    padding: 6rem 0;
+}
+
+#adminstration-page section#administration-section {
+    padding: 2rem 0 !important;
+}
+
+#adminstration-page .administration-owner .member-box {
+    height: 100%;
+}
+
+#adminstration-page .administration-owner .member-name h2 {
+    font-size: 22px;
+    line-height: 2rem !important;
+}
+
+.placement-index {
+    padding-top: 7rem;
+}
+
+section.placement-section{
+    padding: 2rem 0;
+}
+
+#admission-process-page .top-header .top-header-sub-title {
+    padding: 1rem;
+}
+
+#admission-process-page .prominent-title {
+    font-size: 22px;
+}
+
+#admission-process-page .prominent-sub-title {
+    font-weight: 300;
+}
+#loan-and-scholarship-page .loan-departments .card-header h5 {
+    font-size: 18px;
+    line-height: 32px;
+    margin: 0;
+}
+
+#loan-and-scholarship-page .loan-departments .card-header {
+    padding: 1rem;
+}
+
+#loan-and-scholarship-page .loan-departments .card-header h6 {
+    font-size: 16px;
+}
+
+#loan-and-scholarship-page #loan-department-table th, #loan-and-scholarship-page #loan-department-table td {
+    font-size: 16px;
+    padding: 1rem !important;
+}
+
+#loan-and-scholarship-page #banks-providing-loans .heading {
+    font-size: 24px;
+    line-height: 32px;
+}
+
+#loan-and-scholarship-page .loan-points-section .title {
+    font-family: Roboto;
+    font-size: 22px;
+
+}
+#loan-and-scholarship-page .content-section-with-image{
+    width: 100%;
+}
+
+#skills-development-program-page .row.collaboration-centers{
+    margin: 0 !important;
+}
+
+#skills-development-program-page .row.collaboration-centers > .collaboration-center {
+    border-top: 0;
+    padding: 0;
+    border: 0 !important;
+    border-bottom: 1px solid #8080808c !important;
+    padding: 1rem 0;
+}
+
+#skills-development-program-page .collaboration-center .center-address p, 
+#skills-development-program-page .collaboration-center .center-contact-number p{
+    margin: 0;
+}
+
+#skills-development-program-page .collaboration-centers{
+    padding-bottom: 0;
+}
+
+#recognitions-section .establishment-heading {
+    font-size: 18px;
+}
+
+.page-heading-section {
+    padding: 2rem 0 !important;
+}
+
+.gallery-section .gallery-card-textbox p{
+    font-size: 14px !important;
+}
+
+.gallery-section .gallery-card-textbox .video-title {
+    font-size: 14px;
+    line-height: 17px;
+    padding: 1rem 0;
+}
+
+.gallery-section .gallery-card-news-textbox div {
+    font-size: 14px;
+}
+
+/*  */
+header #top-header .site-content {
+    text-align: start;
+}
+
+header #top-header .established-by {
+    text-align: start;
+}
+
+.header-content {
+    padding-left: 1rem;
+}
+footer .footer-main .footer-heading, footer .footer-top .box .heading{
+    font-size: 1rem;
+}
+
+
+footer .footer-main .footer-content p,
+footer .footer-main ul.footer-content li {
+    font-size: 0.875rem;
+}
+
+.established-by,
+.site-info {
+    font-size: 0.875rem !important;
+}
+
+footer .footer-site-content{
+    display: flex;
+    flex-direction: column;
+}
+
+section#recognitions-section {
+    margin-top: 2rem !important;
+}
+
+/*  */
+
+header #top-header .box-one{
+    margin-bottom: 10px;
+}
+
+.section-facts .fact-container{
+    width: 95%;
+}
+.section-facts {
+    height: 710px;
+    clip-path: polygon(50% 92%, -420% 0, 520% 0);
+}
+
+#quotes-section .owl-prev {
+    left: 0px;
+}
+
+#quotes-section .owl-next {
+    right: 0px;
+}
+
+.affiliation-section .devider {
+    border-right: none;
+
+}
+#placement-highlights-section .placement-content {
+    border-right: none;
+}
+#departments-lists .course-item-row {
+    justify-content: space-around;
+     
+ }
+ #departments-lists .know-more-btn{
+    width: 150px;
+ }

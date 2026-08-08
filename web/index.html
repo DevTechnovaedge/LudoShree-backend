@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!--
+    If you are serving your web app in a path other than the root, change the
+    href value below to reflect the base path you are serving from.
+
+    The path provided below has to start and end with a slash "/" in order for
+    it to work correctly.
+
+    For more details:
+    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
+
+    This is a placeholder for base href that will be replaced by the value of
+    the `--base-href` argument provided to `flutter build`.
+  -->
+  <base href="/web/">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="Sab ki pasand LudoShreee">
+
+  <!-- iOS meta tags & icons -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="ludo_shree">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Favicon -->
+  <!-- <link rel="icon" type="image/png" href="favicon.png"/> -->
+  <link rel="shortcut icon" type="image/x-icon" href="favicon.ico"/>
+  <link rel="icon" type="image/x-icon" href="favicon.ico"/>
+
+  <title>MeriFactory</title>
+  <link rel="manifest" href="manifest.json">
+
+  <!-- Add Firebase App (the core Firebase SDK) -->
+  <script src="https://www.gstatic.com/firebasejs/9.24.0/firebase-app.js"></script>
+
+  <!-- Add Firebase Messaging -->
+  <script src="https://www.gstatic.com/firebasejs/9.24.0/firebase-messaging.js"></script>
+
+  <!-- <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function() {
+        navigator.serviceWorker.register('/firebase-messaging-sw.js')
+          .then(function(registration) {
+            console.log('Service Worker registration successful with scope: ', registration.scope);
+          })
+          .catch(function(err) {
+            console.log('Service Worker registration failed: ', err);
+          });
+      });
+    }
+  </script> -->
+
+  <style>
+    html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    overflow: hidden; /* Ensure no scrollbars are shown */
+  }
+
+  /* Full-screen loader */
+  #loader {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(to right, #8B9EEC, #6375C7); /* Background color */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999; /* Make sure it is above everything */
+    margin: 0; /* Remove any margin */
+  }
+  
+  #logo {
+    width: 300px; /* Adjust the size of the logo */
+    height: auto;
+    animation: scaleUpAndDown 2000ms ease-in-out infinite;
+  }
+
+  /* Keyframes for the scale animation */
+  @keyframes scaleUpAndDown {
+    0% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.5);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+  </style>
+</head>
+<body>
+  <!-- Loader container -->
+  <div id="loader">
+    <img src="./splash_logo.png" alt="Loading..." id="logo" />
+  </div>
+
+  <script>
+    const serviceWorkerVersion = "3984759157";
+    var scriptLoaded = false;
+
+    // Function to hide the loader once the app is loaded
+    function hideLoader() {
+      var loader = document.getElementById('loader');
+      if (loader) {
+        loader.style.display = 'none';
+      }
+    }
+
+    // Function to load the main Dart script
+    function loadMainDartJs() {
+      if (scriptLoaded) {
+        return;
+      }
+      scriptLoaded = true;
+      var scriptTag = document.createElement('script');
+      scriptTag.src = 'main.dart.js';
+      scriptTag.type = 'application/javascript';
+      scriptTag.onload = hideLoader; // Hide the loader once script is loaded
+      document.body.append(scriptTag);
+    }
+
+    if ('serviceWorker' in navigator) {
+      // Service workers are supported. Use them.
+      window.addEventListener('load', function () {
+        // Register Firebase Messaging service worker.
+        navigator.serviceWorker.register('firebase-messaging-sw.js', {
+          scope: '/firebase-cloud-messaging-push-scope',
+        });
+
+        // Wait for registration to finish before dropping the <script> tag.
+        // Otherwise, the browser will load the script multiple times,
+        // potentially different versions.
+        var serviceWorkerUrl =
+          'flutter_service_worker.js?v=' + serviceWorkerVersion;
+
+        navigator.serviceWorker.register(serviceWorkerUrl).then((reg) => {
+          function waitForActivation(serviceWorker) {
+            serviceWorker.addEventListener('statechange', () => {
+              if (serviceWorker.state == 'activated') {
+                console.log('Installed new service worker.');
+                loadMainDartJs();
+              }
+            });
+          }
+          if (!reg.active && (reg.installing || reg.waiting)) {
+            // No active web worker and we have installed or are installing
+            // one for the first time. Simply wait for it to activate.
+            waitForActivation(reg.installing ?? reg.waiting);
+          } else if (!reg.active.scriptURL.endsWith(serviceWorkerVersion)) {
+            // When the app updates the serviceWorkerVersion changes, so we
+            // need to ask the service worker to update.
+            console.log('New service worker available.');
+            reg.update();
+            waitForActivation(reg.installing);
+          } else {
+            // Existing service worker is still good.
+            console.log('Loading app from service worker.');
+            loadMainDartJs();
+          }
+        });
+
+        // If service worker doesn't succeed in a reasonable amount of time,
+        // fallback to plain <script> tag.
+        setTimeout(() => {
+          if (!scriptLoaded) {
+            console.warn(
+              'Failed to load app from service worker. Falling back to plain <script> tag.'
+            );
+            loadMainDartJs();
+          }
+        }, 4000);
+      });
+    } else {
+      // Service workers not supported. Just drop the <script> tag.
+      loadMainDartJs();
+    }
+  </script>
+</body>
+</html>

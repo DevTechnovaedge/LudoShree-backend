@@ -1,0 +1,5294 @@
+* {
+    padding: 0;
+    margin: 0;
+    font-family: Roboto;
+}
+
+body {
+    overflow-x: hidden;
+}
+
+/*  */
+.header-effect {
+    /* animation: slide-down 0.7s; */
+    position: fixed;
+    top: 0;
+    width: 100%;
+    z-index: 9999;
+}
+
+@keyframes slide-down {
+    0% {
+        transform: translateY(-100%);
+    }
+
+    100% {
+        transform: translateY(0);
+    }
+}
+
+/*  */
+
+/* .container {
+    max-width: 1290px !important;
+} */
+
+.bg-primary {
+    background: #023222 !important;
+}
+
+.text-primary {
+    color: #023222 !important;
+}
+
+.bg-secondary {
+    background: #7f886b !important;
+}
+
+.text-secondary {
+    color: #7f886b !important;
+}
+
+.bg-white-cream {
+    /* background: #F3ECDA !important; */
+    background: #fbf7ec !important;
+}
+
+.text-third {
+    color: #fbf7ec !important;
+}
+
+.bg-theme-yellow {
+    /* background: #ffb800 !important; */
+    background: #faa61a !important;
+}
+
+.text-fourth {
+    /* color: #ffb800 !important; */
+    color: #faa61a !important;
+}
+
+/* Top Header  */
+header #top-header {
+    height: 150px;
+    padding: 18px 0;
+    background: #023222;
+}
+
+header #top-header .site-content {
+    padding-top: 17px;
+}
+
+.site-name {
+    font-size: 25px;
+    font-weight: 700;
+    line-height: 29.3px;
+    color: #ffffff;
+    word-spacing: 4px;
+    letter-spacing: 1px;
+}
+
+footer .site-name {
+    color: #f3ecda;
+}
+
+header #top-header .established-by {
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 18.75px;
+    text-align: left;
+    color: #ffffff;
+    letter-spacing: 0.7px;
+}
+
+header #top-header .site-info {
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 10.23px;
+    text-align: left;
+    color: #ffffff;
+    letter-spacing: 0.3px;
+    word-spacing: 2.6px;
+}
+
+header #top-header .box-col {
+    padding: 0;
+}
+
+header #top-header .box-one {
+    margin-left: 110px;
+    background: #faa61a;
+    width: 266px;
+    height: 106px;
+    border-radius: 8px;
+    align-content: space-evenly;
+    padding: 10px;
+    margin-bottom: 0.5rem;
+    color: #023222;
+}
+
+header #top-header .box-one .heading {
+    letter-spacing: 0px;
+    font-family: Roboto;
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 24.22px;
+    text-align: center;
+    margin: 0px;
+}
+
+header #top-header .box-two .heading {
+    letter-spacing: 0px;
+    font-family: Roboto;
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 24.22px;
+    text-align: center;
+    margin: 0px;
+}
+
+header #top-header .box-two {
+    margin-left: 14px;
+    background: #ffffff;
+    width: 266px;
+    height: 106px;
+    border-radius: 8px;
+    align-content: space-evenly;
+    padding: 15px;
+    color: #1E1E1E;
+
+}
+
+/* End Top Header */
+
+/* Header Menu */
+
+.header-menus .logo {
+    position: relative;
+}
+
+.header-menus img.logo {
+    position: absolute;
+    left: 0;
+    right: 0;
+    transform: translate(60%, 1%);
+}
+
+.header-menus {
+    height: 74px;
+    z-index: 9;
+}
+
+.header-menus li.nav-item.logo-item {
+    width: 200px;
+}
+
+.header-menus img.logo-bg {
+    position: absolute;
+    top: -17px;
+    width: 211px;
+}
+
+.header-menus img.logo {
+    position: absolute;
+    left: 0;
+    right: 0;
+}
+
+.header-menus .logo-item {
+    width: 140px;
+}
+
+.header-menus ul.navbar-nav {
+    width: 100%;
+    justify-content: space-between;
+}
+
+.header-menus li.nav-item.active a {
+    color: #fff !important;
+}
+
+.header-menus li.nav-item.active {
+    background: #023222;
+    border-radius: 8px;
+    padding: 6px 33px;
+}
+
+.header-menus li.nav-item {
+    padding: 5px 0;
+}
+
+/* End Header Menu */
+
+/* End Header */
+
+/* Header menus */
+footer .footer-top .footer-top-row {
+    padding: 10px 0;
+}
+
+.header-menus .nav-link {
+    font-size: 18px;
+    font-weight: 500;
+    line-height: 21.09px;
+    text-align: left;
+    color: #023222 !important;
+}
+
+.header-menus .nav-item {
+    padding: 0 7px;
+}
+
+/* End Header menus */
+
+/* Footer  */
+/* Footer Top */
+
+footer .footer-top .logo {
+    background: #d9d9d9;
+}
+
+footer .footer-top .container {
+    max-width: 100%;
+}
+
+footer .footer-top .logo-col {
+    padding: 10px 23px;
+    width: 14.6vw;
+    background: #d9d9d9;
+    margin-right: 12px;
+    text-align: end;
+}
+
+
+footer .footer-top .established-by {
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 18.75px;
+    color: #fff;
+}
+
+footer .footer-top .site-info {
+    font-size: 13px;
+    font-weight: 400;
+    line-height: 15.23px;
+    color: #fff;
+}
+
+footer .footer-top .box-col {
+    margin-left: -3px;
+}
+
+footer .footer-top .box {
+    width: 245px;
+    background: #f2f2f2;
+    padding: 10px 26px;
+}
+
+footer .footer-top .box .heading {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+    line-height: 25.8px;
+    text-align: center;
+}
+
+/* End Footer Top */
+
+/* Footer Main  */
+
+footer .footer-main {
+    padding: 50px 0;
+}
+
+footer .footer-main .footer-heading {
+    color: #fff;
+    font-size: 25px;
+    font-weight: 600;
+    line-height: 25px;
+}
+
+footer .footer-main .footer-content p {
+    color: #fff;
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 30px;
+}
+
+footer .footer-main .footer-content p:not(:first-child) {
+    line-height: 22px;
+}
+
+footer .footer-main ul.footer-content li {
+    color: #fff;
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 30px;
+}
+
+footer .footer-main .footer-social-links li {
+    padding: 0 10px;
+}
+
+footer .footer-main .footer-social-icon {
+    border-radius: 50%;
+    background: #fff;
+    padding: 6px;
+    color: #000;
+}
+
+footer .footer-main .footer-first-column {
+    width: 412px;
+}
+
+footer .footer-main .footer-second-column {
+    width: 266px;
+}
+
+footer .footer-main .footer-third-column {
+    width: 275px;
+}
+
+footer .footer-main .footer-fourth-column {
+    width: 510px;
+}
+
+footer .footer-main ul.footer-content {
+    list-style: none;
+    padding: 0;
+}
+
+/* End Footer Main */
+/* End Footer */
+
+/* Home Slider Section */
+
+.carousel-control-next,
+.carousel-control-prev {
+    width: 0;
+}
+
+.home-slider-section .carousel-control-prev {
+    right: 0;
+    left: unset;
+}
+
+.home-slider-section .carousel-control-prev-icon {
+    position: absolute;
+    bottom: 30px;
+    left: -175px;
+    border: 1px solid #fff;
+    border-radius: 50%;
+    height: 50px;
+    width: 50px;
+    background-size: 18px;
+    transition: all 0.2s;
+}
+
+span.carousel-control-next-icon:hover, span.carousel-control-prev-icon:hover {
+    transform: scale(1.1);
+}
+
+.home-slider-section .carousel-control-next-icon {
+    position: absolute;
+    bottom: 30px;
+    border: 1px solid #fff;
+    border-radius: 50%;
+    height: 50px;
+    width: 50px;
+    background-size: 18px;
+    right: 60px;
+    transition: all 0.2s;
+}
+
+.home-slider-section .carousel-caption {
+    position: absolute;
+    left: 148px;
+    width: fit-content;
+    transform: translate(0%, -30%);
+    padding: 0;
+    text-align: left;
+}
+
+.home-slider-section .carousel-caption .heading {
+    font-size: 34px;
+    font-weight: 600;
+    line-height: 49px;
+}
+
+.home-slider-section .carousel-caption .content {
+    font-size: 20px;
+    font-weight: 400;
+    line-height: 27px;
+    width: 530px;
+}
+
+.home-slider-section .know-more-btn span {
+    font-family: Roboto;
+    font-size: 22.62px;
+    font-weight: 500;
+    line-height: 26.51px;
+    text-align: left;
+}
+
+.home-slider-section .know-more-btn {
+    width: 181px;
+    height: 41.48px;
+    top: 334px;
+    left: 75px;
+    gap: 0px;
+    border-radius: 8.8px;
+    opacity: 0px;
+    background-color: #f3ecda;
+    border: 0;
+    margin-top: 40px;
+}
+
+.home-slider-section .divider {
+    border: 1px solid #fff;
+    position: absolute;
+    bottom: 70px;
+    width: 100%;
+    right: 26%;
+}
+
+.home-slider-section .dot {
+    height: 10px;
+    width: 10px;
+    border-radius: 50%;
+    background: #fff;
+    position: absolute;
+    right: -9px;
+    top: -5px;
+}
+
+.home-slider-section .carousel-indicators {
+    bottom: -70px;
+    align-items: center;
+}
+
+.home-slider-section .carousel-indicators [data-bs-target] {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background-color: #bcbcbc;
+}
+
+.home-slider-section .carousel-indicators .active {
+    width: 18px;
+    height: 18px;
+    background-color: #023222;
+}
+
+/* End Home Slider Section */
+
+/* JVWU Facts */
+.fact-container {
+    width: 75%;
+    padding: 50px 0;
+}
+
+
+.section-facts {
+    content: "";
+    /* position: absolute; */
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 580px; /* Adjust the height as needed */
+    background: url("../pages/home/fact-bg.png");; /* Use the same background image */
+    clip-path: polygon(50% 85%, -335% 0, 450% 0);
+    background-size: cover;
+    background-position: center;
+    position: relative;
+    z-index: 99999;
+}
+.section-facts .fact-items {
+    /* border-bottom: 1px solid #000; */
+    padding: 20px 0;
+}
+
+.section-facts .heading {
+    font-family: Playfair Display;
+    font-size: 40px;
+    font-weight: 900;
+    line-height: 53.32px;
+    color: #023222;
+}
+
+.section-facts .icon-img {
+    height: 55px;
+    width: 55px;
+}
+
+.section-facts .count {
+    font-family: Roboto;
+    font-size: 25px;
+    font-weight: 800;
+    line-height: 29.3px;
+    text-align: center;
+    /* margin-bottom: 0.5rem; */
+}
+
+.section-facts .fact-name h4 {
+    font-family: Roboto;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 15.76px;
+    text-align: center;
+    margin-top: 0.3rem;
+}
+
+.section-facts .fact-item {
+    padding: 15px 0;
+    border: 2px solid gray;
+    width: 100%;
+    height: 180px;
+    border-radius: 13px;
+}
+
+/* End JVWU Facts */
+
+/* about-section home page */
+
+.about-section {
+    background: linear-gradient(0deg, #023222c2, #023222c0), url("../pages/home/about-bg.png");
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: cover;
+    text-align: center;
+    padding: 0px 0px 50px 0px ;
+    color: #fff;
+    margin-top: -155px;
+}
+
+/* About JVWU */
+.about-jvwu-section {
+    padding: 3rem 0;
+    position: relative;
+}
+
+.about-jvwu-section .heading {
+    color: #fff;
+    font-family: Playfair Display;
+    font-size: 35px;
+    font-weight: 800;
+    line-height: 46.66px;
+    text-align: left;
+}
+
+.about-jvwu-section .divider {
+    border: 1px solid #fff;
+    position: absolute;
+    width: 24%;
+    left: 0;
+    top: 90px;
+}
+
+.about-jvwu-section .dot {
+    height: 10px;
+    width: 10px;
+    border-radius: 50%;
+    background: #fff;
+    position: absolute;
+    right: -9px;
+    top: -5px;
+}
+
+.about-jvwu-section .about-jvwu-col {
+    padding: 0;
+}
+
+.about-jvwu-section .title h4 {
+    font-family: Roboto;
+    font-size: 25px;
+    font-weight: 600;
+    line-height: 49px;
+    text-align: left;
+}
+
+.about-jvwu-section .title h4 {
+    line-height: 18px;
+}
+
+.about-jvwu-section p.desc {
+    margin-top: 15px;
+    font-family: Roboto;
+    font-size: 16px;
+    font-weight: 300;
+    line-height: 23px;
+    text-align: left;
+
+    color: #fff;
+}
+
+.about-jvwu-section .content {
+    margin-top: 20px;
+}
+
+.about-jvwu-section .content-col {
+    padding: 0;
+}
+
+.about-jvwu-section .btn-label {
+    font-family: Roboto;
+    font-size: 22.62px;
+    font-weight: 500;
+    line-height: 26.51px;
+    text-align: left;
+    vertical-align: middle;
+}
+
+.about-jvwu-section .know-more-btn {
+    border: 0;
+    background: #ffffffba;
+    padding: 8px 20px;
+    margin-top: 12px;
+}
+
+.about-jvwu-section .youtube-thumbnail-col {
+    padding: 0;
+}
+
+.about-jvwu-section .youtube-thumbnail-container {
+    position: relative;
+    margin-top: 35px;
+}
+
+.about-jvwu-section .youtube-play-icon {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    margin: auto;
+    left: 0;
+    right: 0;
+}
+
+.about-jvwu-section .overlay {
+    position: absolute;
+    background: linear-gradient(1deg, #00000061, transparent);
+    top: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.image-shadow-left {
+    box-shadow: -12px 17px 29px -6px #0000009c;
+}
+
+.image-shadow-right {
+    box-shadow: 13px 17px 29px -6px #0000009c;
+}
+
+#patent-table a {
+    text-decoration: underline;
+}
+
+#founder-section table#patent-table th {
+    vertical-align: baseline;
+}
+
+/* End About JVWU */
+
+/* Acedemics */
+#acedemics-section {
+    padding: 3rem 0;
+}
+
+#acedemics-section .heading {
+    font-family: Playfair Display;
+    font-size: 40px;
+    font-weight: 900;
+    line-height: 53.32px;
+    color: #1e1e1e;
+}
+
+#acedemics-section .sub-title {
+    font-family: Roboto;
+    font-size: 18px;
+    font-weight: 400;
+    line-height: 21.09px;
+    text-align: center;
+    width: 605px;
+    margin: auto;
+    color: #000;
+}
+
+#acedemics-section .acedemic-posts .item:first-of-type {
+    padding-left: 0;
+}
+
+#acedemics-section .acedemic-posts .item:last-of-type {
+    padding-right: 0;
+}
+
+#acedemics-section .row.acedemic-posts {
+    margin-top: 40px;
+}
+
+#acedemics-section .title {
+    font-family: Roboto;
+    font-size: 25px;
+    font-weight: 700;
+    line-height: 34px;
+    text-align: left;
+    color: #023222;
+}
+
+#acedemics-section .desc {
+    font-family: Roboto;
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 21px;
+    text-align: left;
+    color: #1e1e1e;
+}
+
+#acedemics-section .explore-more-btn {
+    font-family: Roboto;
+    font-size: 20px;
+    font-weight: 500;
+    line-height: 21px;
+    text-align: left;
+    color: #966f09;
+    margin-bottom: 20px;
+    text-decoration: none;
+}
+
+#acedemics-section .explore-more-btn span {
+    border-bottom: 1px solid #966f09;
+    padding-bottom: 1px;
+}
+
+#acedemics-section .content {
+    padding: 12px 14px 30px 10px;
+}
+
+#acedemics-section .acedemic-item {
+    border-bottom: 2px solid #0006;
+}
+
+#acedemics-section .featured-image img {
+    height: 280px;
+    width: 100%;
+}
+
+/* End Acedemics */
+
+/* Facuilty */
+#faculty-of-jvwu-section {
+    padding-top: 2rem;
+}
+
+#faculty-of-jvwu-section .faculty-item {
+    border-radius: 2rem;
+}
+
+#faculty-of-jvwu-section .heading {
+    font-family: Playfair Display;
+    font-size: 40px;
+    font-weight: 900;
+    line-height: 53.32px;
+    color: #1e1e1e;
+}
+
+#faculty-of-jvwu-section .sub-title {
+    font-family: Roboto;
+    font-size: 20px;
+    font-weight: 400;
+    line-height: 21.09px;
+    text-align: center;
+    width: 605px;
+    margin: auto;
+    color: #000;
+}
+
+#faculty-of-jvwu-section .faculties-post-container {
+    padding: 3rem 0;
+    margin-top: 2rem;
+}
+
+#faculty-of-jvwu-section .know-more {
+    font-family: Roboto;
+    font-size: 18px;
+    font-weight: 400;
+    line-height: 21.09px;
+    text-align: left;
+    text-decoration: none;
+    color: #fff;
+    border-bottom: 1px solid #fff;
+    padding: 1px 0;
+}
+
+#faculty-of-jvwu-section .faculty-item {
+    position: relative;
+    overflow: hidden;
+    height: 100%;
+}
+
+
+
+#faculty-of-jvwu-section .faculty-item .faculty-featured-image {
+    transition: all 1s;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+
+
+#faculty-of-jvwu-section .title {
+    color: #fff;
+    font-family: Roboto;
+    font-size: 22.61px;
+    font-weight: 500;
+    line-height: 26.49px;
+    text-align: left;
+}
+
+
+#faculty-of-jvwu-section .faculty-item:hover .faculty-featured-image {
+    transform: translateY(-10px);
+}
+
+#faculty-of-jvwu-section .faculty-item:hover .overlay {
+    
+    transform: translateY(0);
+}
+
+#faculty-of-jvwu-section .overlay {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    padding: 27px 0 23px 18px;
+    background: linear-gradient(1deg, #000, #ffffff00);
+    
+    transform: translateY(100%);
+    transition: all 1s;
+}
+
+#faculty-of-jvwu-section .divider {
+    border: 1px solid #fff;
+    position: absolute;
+    bottom: 18px;
+    width: 74%;
+    right: 26%;
+}
+
+#faculty-of-jvwu-section .dot {
+    height: 10px;
+    width: 10px;
+    border-radius: 50%;
+    background: #fff;
+    position: absolute;
+    right: -9px;
+    top: -5px;
+}
+
+#faculty-of-jvwu-section .faculty-other-wrapper {
+    padding: 4rem 0;
+}
+
+#faculty-of-jvwu-section .other-icon-img {
+    background: #fbf7ec;
+    border-radius: 50%;
+    height: 120px;
+    width: 120px;
+    text-align: center;
+    border: 3px solid #a28026;
+    align-content: center;
+    margin: auto;
+}
+
+#faculty-of-jvwu-section .other-icon {
+    background: #023222;
+    border-radius: 50%;
+    height: 110px;
+    width: 110px;
+    text-align: center;
+    text-align: -webkit-center;
+    align-content: center;
+    margin: auto;
+}
+
+#faculty-of-jvwu-section .other-title {
+    font-family: Roboto;
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 21.09px;
+    text-align: center;
+    margin-top: 10px;
+}
+
+#faculty-of-jvwu-section .faculty-other-row {
+    flex-wrap: nowrap;
+    margin-left: 136px;
+}
+
+#faculty-of-jvwu-section .faculty-other-row .custom-col {
+    margin-right: -15px;
+    width: 185px;
+}
+
+/* End Facuilty */
+
+/* Campus */
+
+#campus-news-section {
+    padding: 2rem 0;
+    background: #023222;
+}
+
+#campus-news-section .campus-item img {
+    transition: all 1s;
+    height: 350px;
+    object-fit: cover;
+}
+
+#campus-news-section .campus-item:hover img {
+    transform: scale(1.1);
+}
+
+#campus-news-section .campus-big,
+#campus-news-section .campus-small {
+    overflow: hidden;
+    border-radius: 20px;
+}
+
+#campus-news-section .heading {
+    font-family: Playfair Display;
+    font-size: 40px;
+    font-weight: 900;
+    line-height: 53.32px;
+    color: #fff;
+}
+
+#campus-news-section .sub-title {
+    font-family: Roboto;
+    font-size: 20px;
+    font-weight: 400;
+    line-height: 21.09px;
+    text-align: center;
+    width: 605px;
+    margin: auto;
+    color: #fff;
+}
+
+#campus-news-section .campus-big:first-of-type {
+    padding-left: 0;
+}
+
+#campus-news-section .campus-item {
+    margin: 1rem 0;
+    position: relative;
+}
+
+#campus-news-section .campus-big .overlay {
+    position: absolute;
+    bottom: 0;
+    padding: 50px 18px 22px;
+    background: linear-gradient(1deg, black, transparent);
+    width: 96.5%;
+    border-radius: 20px;
+}
+
+#campus-news-section .campus-small {
+    box-shadow: -4px 4px 4px 0px #02020247;
+}
+
+#campus-news-section .campus-small .overlay {
+    position: absolute;
+    bottom: 0;
+    padding: 17px 19px 18px;
+    background: #fff;
+    width: 92.6%;
+    border-radius: 0px 0px 20px 20px;
+}
+
+#campus-news-section .campus-big .overlay-title {
+    font-family: Roboto;
+    font-size: 25px;
+    font-weight: 800;
+    line-height: 35.3px;
+    text-align: left;
+    color: #fff;
+}
+
+#campus-news-section .campus-small .overlay-title {
+    font-family: Roboto;
+    font-size: 19px;
+    font-weight: 800;
+    line-height: 28.27px;
+    text-align: left;
+    color: #000;
+}
+
+#campus-news-section .campus-big .overlay-sub-title {
+    font-family: Roboto;
+    font-size: 16.66px;
+    font-weight: 400;
+    line-height: 20.65px;
+    text-align: left;
+    color: #fff;
+}
+
+#campus-news-section .campus-small .overlay-sub-title {
+    font-family: Roboto;
+    font-size: 17.1px;
+    font-weight: 400;
+    line-height: 21.37px;
+    text-align: left;
+    color: #000;
+}
+
+#campus-news-section .overlay-topic {
+    color: #fff;
+}
+
+#campus-news-section .more-campus-news-wrapper {
+    width: 292px;
+    height: 48px;
+    background-color: #fff;
+    align-content: space-around;
+    margin: 1rem 0;
+    border-radius: 5px;
+}
+
+#campus-news-section .more-campus-news-wrapper a {
+    font-family: Roboto;
+    font-size: 25px;
+    font-weight: 600;
+    line-height: 34px;
+    text-align: center;
+    color: #023222;
+    text-decoration: none;
+}
+
+/* End Campus */
+
+/* Placement Highlights */
+#placement-highlights-section .heading {
+    font-family: Playfair Display;
+    font-size: 40px;
+    font-weight: 900;
+    line-height: 53.32px;
+    color: #1e1e1e;
+    text-align: left;
+}
+
+#placement-highlights-section .sub-title {
+    font-family: Roboto;
+    font-size: 16.02px;
+    font-weight: 400;
+    line-height: 23.55px;
+    text-align: left;
+}
+
+#placement-highlights-section .more-campus-news-wrapper {
+    width: 292px;
+    height: 48px;
+    background-color: #023222;
+    align-content: space-around;
+    margin: 1rem 0;
+    border-radius: 10px;
+}
+
+#placement-highlights-section .more-campus-news-wrapper a {
+    font-family: Roboto;
+    font-size: 25px;
+    font-weight: 400;
+    line-height: 34px;
+    text-align: center;
+    color: #fff;
+    text-decoration: none;
+}
+
+#placement-highlights-section {
+    padding-bottom: 4rem;
+}
+
+#placement-highlights-section .placement-content {
+    border-right: 1px solid;
+}
+
+#placement-highlights-section .placement-container {
+    background-color: #d9d9d9;
+}
+
+#placement-highlights-section .placement-basic-content {
+    padding: 10px;
+    padding-bottom: 0;
+}
+
+#placement-highlights-section .name h4 {
+    font-family: Playfair Display;
+    font-size: 17.12px;
+    font-weight: 900;
+    line-height: 14.4px;
+    text-align: center;
+    color: #1e1e1e;
+}
+
+#placement-highlights-section .content {
+    font-family: Roboto;
+    font-size: 11.42px;
+    font-weight: 400;
+    line-height: 16.56px;
+    text-align: left;
+    height: 90px;
+    padding: 10px 0;
+}
+
+#placement-highlights-section .offered-label {
+    font-family: Roboto;
+    font-size: 11.52px;
+    font-weight: 400;
+    line-height: 30.95px;
+    text-align: center;
+}
+
+#placement-highlights-section .pacakge-per-annual {
+    background-color: #023222;
+    text-align: center;
+    padding: 10px;
+}
+
+#placement-highlights-section .pacakge-per-annual span {
+    font-family: Roboto;
+    font-size: 23.78px;
+    font-weight: 800;
+    line-height: 30.95px;
+    text-align: center;
+    color: #feb800;
+}
+
+#placement-highlights-section .name {
+    margin-top: 10px;
+}
+
+#placement-highlights-section .content p {
+    margin: 0;
+}
+
+/* End Placement Highlights */
+
+/* Partners */
+#partners-section {
+    padding: 2rem 0;
+}
+
+#partners-section .tabs {
+    padding: 20px 0;
+    background-color: #feb800;
+}
+
+#partners-section .nav-link {
+    font-family: Roboto;
+    font-size: 25px;
+    font-weight: 500;
+    line-height: 27px;
+    text-align: center;
+    color: #1e1e1e;
+    background-color: #feb800 !important;
+}
+
+#partners-section .nav-link:hover, #partners-section .nav-link.active {
+    border: 1px solid #000;
+    border-radius: 20px;
+    color: #1e1e1e !important;
+}
+
+#partners-section li.nav-item {
+    padding: 0 5px;
+}
+
+#partners-section .slick-prev:before,
+#partners-section .slick-next:before {
+    font-size: unset;
+}
+
+#partners-section .slick-slide:not(.slick-current + .slick-active) {
+    opacity: 0.6;
+    transform: scale(0.95);
+}
+
+#partners-section button.slick-prev.slick-arrow {
+    left: -65px;
+    background: #d9d9d9;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+}
+
+#partners-section button.slick-next.slick-arrow {
+    right: -65px;
+    background: #d9d9d9;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+}
+
+#partners-section .tab-col {
+    border: 1px solid gray;
+    padding: 2rem 7rem;
+    border-top: 0;
+    border-radius: 0 0 50px 50px;
+    background: #023222;
+}
+
+#partners-section button.nav-link {
+    position: relative;
+}
+
+#partners-section button.nav-link {
+    padding: 10px 2rem !important;
+}
+
+/* End Partners */
+
+/* Extra small devices (phones, 600px and down) */
+@media only screen and (max-width: 600px) {
+    .container {
+        max-width: 100vw;
+    }
+
+    header .logo-col {
+        margin: auto;
+        text-align: center;
+    }
+
+    header .established-by {
+        font-size: 18px;
+    }
+
+    /* header  .site-info{ font-size: 17px;} */
+    header .header-content {
+        padding: 10px 15px;
+    }
+
+    header .header-content .navbar-brand {
+        white-space: normal;
+    }
+
+    /* acedemics-section */
+    #acedemics-section {
+        padding: 1rem;
+    }
+
+    #acedemics-section .sub-title {
+        width: 100%;
+    }
+
+    #acedemics-section .row.acedemic-posts {
+        margin-top: 7px;
+        --bs-gutter-y: 2rem;
+    }
+
+    /* End acedemics-section */
+
+    /* faculty-of-jvwu-section */
+    #faculty-of-jvwu-section .sub-title {
+        width: 100%;
+    }
+
+  
+    #faculty-of-jvwu-section .overlay {
+        width: 85.4%;
+    }
+
+
+
+    #faculty-of-jvwu-section .faculty-other-row {
+        margin-left: 0;
+    }
+
+    /* End faculty-of-jvwu-section */
+
+    /* campus-news-section */
+    #campus-news-section .campus-big .overlay {
+        width: 94.5%;
+    }
+
+    /* End campus-news-section */
+
+    /* campus-news-section */
+    #campus-news-section .sub-title {
+        width: 100%;
+    }
+
+    #campus-news-section .campus-small .overlay {
+        width: 94.5%;
+
+    }
+
+    #campus-news-section .campus-item img {
+        width: 100%;
+    }
+
+    #campus-news-section {
+        padding: 1rem;
+    }
+
+    /* End campus-news-section */
+
+    /* placement-highlights-section */
+    #placement-highlights-section {
+        padding: 2rem;
+    }
+
+    /* End placement-highlights-section */
+
+    .order-m-1 {
+        order: 1;
+    }
+
+    .order-m-2 {
+        order: 2;
+    }
+
+    #placement-highlights-section .more-campus-news-wrapper {
+        width: 100%;
+        margin: 0;
+    }
+
+    #placement-highlights-section .more-campus-news-wrapper a {
+        font-size: 18px;
+    }
+
+    /* #placement-highlights-section .placement-highlight-items {
+        margin-top: 1rem;
+    } */
+
+    /* Footer */
+    footer .footer-top .logo-col {
+        width: inherit;
+    }
+
+    footer .footer-top .navbar-brand {
+        white-space: normal;
+        text-align: center;
+    }
+
+    .footer-first-column,
+    .footer-second-column,
+    .footer-third-column,
+    .footer-fourth-column {
+        width: 100% !important;
+    }
+
+    footer .footer-main {
+        padding: 20px !important;
+    }
+
+    footer .footer-top .box {
+        width: 100%;
+        margin-top: 1rem;
+    }
+
+    footer .footer-top .box-col {
+        margin-left: 0;
+    }
+
+    footer .social-link-label {
+        margin-bottom: 1rem;
+    }
+
+    footer .social-link-divider {
+        display: none;
+    }
+
+    ul.footer-social-links {
+        justify-content: space-between;
+    }
+
+    /* footer .footer-main {
+        text-align: center;
+    } */
+    footer .footer-top .logo-col {
+        width: 100%;
+        text-align: center;
+        margin-bottom: 1rem;
+    }
+
+    /* Footer */
+
+    /* slider */
+    .home-slider-section .carousel-control-prev-icon {
+        position: absolute;
+        bottom: 12px;
+        left: -100px;
+        border: 1px solid #fff;
+        border-radius: 50%;
+        height: 40px;
+        width: 40px;
+        background-size: 18px;
+    }
+
+    .home-slider-section .carousel-control-next-icon {
+        position: absolute;
+        bottom: 14px;
+        border: 1px solid #fff;
+        border-radius: 50%;
+        height: 40px;
+        width: 40px;
+        background-size: 18px;
+        right: 12px;
+    }
+
+    .home-slider-section .carousel-caption .heading {
+        font-size: 17px;
+        font-weight: 600;
+        line-height: 1;
+        margin-left: 10px;
+    }
+
+    .home-slider-section .carousel-caption .content {
+        font-size: 12px;
+        font-weight: 400;
+        line-height: 1.5;
+        width: 100%;
+        margin-left: 10px;
+    }
+
+    .carousel-caption.d-none {
+        display: block !important;
+    }
+
+    .home-slider-section .divider {
+        display: none;
+    }
+
+    .home-slider-section .know-more-btn {
+        display: none;
+    }
+
+    .home-slider-section .carousel-caption {
+        left: 0;
+        transform: unset;
+    }
+
+    /* slider */
+
+    /* About */
+    section.about-jvwu-section {
+        padding: 2rem;
+    }
+
+    .about-jvwu-section .title h4 {
+        line-height: 28px;
+    }
+
+    .about-jvwu-section p.desc {
+        font-weight: 400;
+    }
+
+    .about-jvwu-section .divider {
+        width: 65%;
+    }
+
+    .about-jvwu-section .youtube-play-icon {
+        width: 50px;
+    }
+
+    /* About */
+}
+
+/* Small devices (portrait tablets and large phones, 600px and up) */
+@media only screen and (min-width: 600px) {
+    /* Footer */
+    /* .footer-first-column, .footer-second-column, .footer-third-column, .footer-fourth-column { width: 100% !important; } */
+    /* Footer */
+}
+
+/* Medium devices (landscape tablets, 768px and up) */
+@media only screen and (min-width: 768px) {}
+
+/* Large devices (laptops/desktops, 992px and up) */
+@media only screen and (min-width: 992px) {}
+
+/* Extra large devices (large laptops and desktops, 1200px and up) */
+@media only screen and (min-width: 1200px) {}
+
+.header-menus a::after {
+    border: 0;
+    vertical-align: 2px;
+}
+
+.theme-container {
+    max-width: 1440px !important;
+    margin: auto;
+}
+
+
+
+.m-logo {
+    display: none;
+}
+
+#our-core-values-section .section-img img {
+    width: 700px;
+}
+
+/* Mobile Responsive */
+@media (max-width: 992px) {
+
+    /* Header */
+    .theme-container {
+        width: 90%;
+        max-width: 90%;
+    }
+
+    header .m-logo {
+        display: block;
+        margin: auto;
+        background: #fff;
+        border-radius: 10px;
+        padding: 10px;
+    }
+
+    header .container-fluid.header-menus-start {
+        background: #ffffff;
+    }
+
+    header #top-header {
+        height: auto;
+    }
+
+    header #top-header .site-content {
+        padding-top: 0;
+        text-align: center;
+    }
+
+    header #top-header .established-by {
+        text-align: center;
+    }
+
+    header #top-header .site-info {
+        text-align: center;
+        white-space: normal;
+        line-height: 20px;
+    }
+
+    .site-name {
+        font-size: 14px;
+        word-spacing: 0px;
+        letter-spacing: 0px;
+        margin: 0;
+    }
+
+    header .box-row {
+        display: block !important;
+    }
+
+    header .box.box-one {
+        margin-left: 0 !important;
+        width: 100% !important;
+        height: auto !important;
+        padding: 10px !important;
+    }
+
+    header .box.box-two {
+        margin-left: 0 !important;
+        width: 100% !important;
+        height: auto !important;
+        padding: 10px !important;
+    }
+
+    header .nav-item.logo-item {
+        display: none;
+    }
+
+    header .header-menus-start {
+        margin: 0;
+    }
+
+    /* End Header */
+
+    #our-core-values-section .overview ul.points {
+        padding-right: 0 !important;
+    }
+
+    .respects-section .heading {
+        margin-top: 0 !important;
+    }
+
+    .about-jvwu-section .content {
+        margin-top: 45px;
+    }
+
+    /* Committee */
+    #committee-section .heading {
+        font-size: 25px !important;
+        line-height: 35px !important;
+    }
+
+    #committee-section .heading-content .sub-heading {
+        font-size: 20px !important;
+        line-height: 35px !important;
+    }
+
+    #committee-section .section-divider {
+        margin: 20px 0 !important;
+    }
+
+    ul.anti-ranging-list {
+        padding: 10px 0 !important;
+        overflow: hidden;
+        white-space: nowrap;
+    }
+
+    #committee-section ul.anti-ranging-list li {
+        font-size: 17px !important;
+        line-height: 30px !important;
+        overflow: auto;
+    }
+
+    /* End Committee */
+    main {
+        /* padding-top: 3rem !important; */
+        overflow: hidden !important;
+    }
+
+    .administration-owner .member-name h2 {
+        line-height: 27px !important;
+    }
+
+
+
+    /* Founder */
+
+    #founder-section .quote p {
+        padding: 2rem 0 !important;
+        line-height: 30px !important;
+    }
+
+    #person-details-container>div.d-flex {
+        flex-direction: column;
+    }
+
+    #person-details-container {
+        padding: 0 !important;
+    }
+
+    #person-details-container .person-details-col {
+        padding: 2rem 3rem !important;
+    }
+
+    .personal-overview .content-heading {
+        font-size: 20px !important;
+        line-height: 28px !important;
+    }
+
+    #person-details-container {
+        margin-top: 2rem !important;
+    }
+
+    #founder-section .heading-type-one {
+        font-size: 30px !important;
+    }
+
+    .work-img {
+        padding: 0 !important;
+    }
+
+    .officer-details-ul {
+        overflow: auto;
+    }
+
+    /* End Founder */
+
+    /* About */
+    .about-section .overlay-banner {
+        height: auto !important;
+    }
+
+    .about-section .banner-img {
+        height: auto !important;
+    }
+
+    .banner-content {
+        position: absolute;
+        color: #fff;
+        font-family: Playfair Display;
+        font-size: 40px !important;
+        font-weight: 900;
+        line-height: 90.01px;
+        top: 0 !important;
+        right: 0 !important;
+        margin: auto;
+        text-align: center;
+        left: 0;
+        align-content: space-evenly;
+        bottom: 0;
+    }
+
+    .about-jvwu-col .divider {
+        width: 365px !important;
+    }
+
+    .about-jvwu-section .title h4 {
+        line-height: 30px !important;
+    }
+
+    .about-jvwu-section {
+        padding: 2rem 0 !important;
+    }
+
+    .mission-and-vision {
+        padding: 2rem 0 !important;
+    }
+
+    .mission-and-vision img {
+        width: 100%;
+    }
+
+    .resolution-container {
+        background-size: cover !important;
+    }
+
+    .resolution-container .content {
+        width: 90% !important;
+    }
+
+    .mission-and-vision-content {
+        padding-bottom: 2rem;
+    }
+
+    #our-core-values-section {
+        margin-left: 0 !important;
+    }
+
+    #our-core-values-section>.d-flex {
+        flex-direction: column;
+    }
+
+    #our-core-values-section .section-img img {
+        width: 100%;
+    }
+
+    #our-core-values-section .overview {
+        margin-left: 0 !important;
+        padding: 0 1.5rem !important;
+    }
+
+    section#our-core-values-section {
+        padding: 2rem 0 !important;
+    }
+
+    ul.fact-points {
+        padding: 0 2rem !important;
+    }
+
+    #jv-facts-section .jv-fact-box {
+        padding: 2rem 0 !important;
+    }
+
+    .fact-banner-img img {
+        width: 100%;
+    }
+
+    .respects-section img {
+        width: 100% !important;
+    }
+
+    .first-block,
+    .second-block {
+        border-right: 0 !important;
+    }
+
+    /* End About */
+}
+
+/* Mobile Responsive */
+
+main {
+    background-color: #fbf7ec;
+}
+
+
+.about-section .overlay-banner {
+    position: absolute;
+}
+
+.about-section .page-banner {
+    position: relative;
+}
+
+.about-section .overlay-banner {
+    position: absolute;
+    opacity: 0.5;
+    height: 500px;
+}
+
+.about-section .banner-img {
+    height: 500px;
+}
+
+.about-section .banner {
+    height: 500px;
+}
+
+.about-section .banner-content {
+    position: absolute;
+    color: #fff;
+    font-family: Playfair Display;
+    font-size: 67.54px;
+    font-weight: 900;
+    line-height: 90.01px;
+    top: 40%;
+    right: 40%;
+}
+
+.about-section .about-jvwu-col .heading {
+    color: #154131;
+    font-family: Playfair Display;
+    font-size: 36px;
+    font-weight: 800;
+    line-height: 46.66px;
+    letter-spacing: 2px;
+    margin-top: 4px;
+}
+
+.about-section .about-jvwu-col .divider {
+    border: 1px solid #154131;
+    position: absolute;
+    width: 24%;
+    left: -75px;
+    top: 105px;
+}
+
+.about-section .about-jvwu-col .dot {
+    height: 10px;
+    width: 10px;
+    border-radius: 50%;
+    background: #154131;
+    position: absolute;
+    right: -9px;
+    top: -5px;
+}
+
+.about-section .about-container {
+    padding: 3rem 0;
+}
+
+.about-section .about-jvwu-section {
+    padding: 3rem 0 4rem 0;
+    position: relative;
+    border-bottom: 2px solid #4f4e4bbf;
+}
+
+.about-section .about-jvwu-section .title h4 {
+    font-family: Roboto;
+    font-size: 25px;
+    font-weight: 600;
+    line-height: 49px;
+    color: #1e1e1e;
+}
+
+.about-jvwu-section .title h4 {
+    line-height: 18px;
+}
+
+.about-jvwu-section p.desc {
+    font-family: Roboto;
+    font-size: 18px;
+    font-weight: 400;
+    line-height: 23px;
+    text-align: left;
+    color: #000;
+    margin-top: 19px;
+    word-spacing: -1.2px;
+}
+
+.mission-and-vision .heading {
+    font-family: Playfair Display;
+    font-size: 35px;
+    font-weight: 900;
+    line-height: 46.66px;
+    text-align: left;
+}
+
+.mission-and-vision .content {
+    font-family: Roboto;
+    font-size: 16px;
+    font-weight: 500;
+    line-height: 25px;
+    text-align: left;
+    color: #023222;
+}
+
+.mission-and-vision {
+    padding: 5rem 0;
+}
+
+.mission .heading {
+    margin-top: 6px;
+    letter-spacing: 2px;
+}
+
+.vision .heading {
+    letter-spacing: 2px;
+}
+
+.mission-and-vision .heading {
+    margin-top: 6px;
+    letter-spacing: 2px;
+}
+
+.mission .content,
+.vision .content {
+    font-family: Roboto;
+    font-size: 16px;
+    font-weight: 500;
+    line-height: 28px;
+    color: #023222;
+}
+
+.resolution-container .heading {
+    font-family: Playfair Display;
+    font-size: 38px;
+    font-weight: 900;
+    line-height: 46.66px;
+    text-align: center;
+    color: #feb800;
+}
+
+.resolution-div {
+    padding: 3rem 0;
+}
+
+.resolution-container .content {
+    font-family: Roboto;
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 27px;
+    text-align: center;
+    color: #fff;
+    width: 70%;
+    margin: auto;
+    margin-top: 12px;
+}
+
+#our-core-values-section .overview .heading {
+    text-align: left;
+    font-family: Playfair Display;
+    font-size: 38px;
+    font-weight: 900;
+    line-height: 46.66px;
+    margin-top: 5px;
+}
+
+section#our-core-values-section {
+    padding: 5.5rem 0;
+    margin-left: 71px;
+}
+
+section#our-core-values-section .overview {
+    margin-left: 108px;
+}
+
+section#our-core-values-section .content {
+    font-family: Roboto;
+    font-size: 24px;
+    font-weight: 500;
+    line-height: 33px;
+    width: 90%;
+}
+
+#our-core-values-section .respects-section ul.points li,
+#our-core-values-section ul.points li {
+    position: relative;
+    font-family: Roboto;
+    font-size: 16px;
+    font-weight: 500;
+    line-height: 18.75px;
+    text-align: left;
+}
+
+.respects-section ul.points,
+#our-core-values-section ul.points {
+    list-style: none;
+    padding-top: 5px;
+}
+
+.respects-section ul.points,
+#our-core-values-section .overview ul.points {
+    padding-top: 0;
+    margin-top: 1rem;
+}
+
+#our-core-values-section .overview ul.points {
+    margin-top: 2rem;
+    padding-top: 17px;
+    padding-right: 7rem;
+    padding-left: 4rem;
+}
+
+#our-core-values-section .overview ul.points {
+    border: 2px solid #73716c;
+    border-right: 0;
+    border-radius: 17px 0 0 17px;
+}
+
+#our-core-values-section ul.points li span.point {
+    padding-left: 1rem;
+    line-height: 41px;
+}
+
+#our-core-values-section .points li {
+    text-indent: -16px;
+}
+
+#jv-facts-section {
+    background: #313131;
+    padding-bottom: 4rem;
+}
+
+#jv-facts-section .jv-fact-box {
+    position: relative;
+    background: #f3ecda;
+    padding: 2rem 2rem 12rem 2rem;
+    margin-bottom: 12rem;
+}
+
+#jv-facts-section .heading {
+    font-family: Playfair Display;
+    font-size: 35px;
+    font-weight: 900;
+    line-height: 35px;
+    color: #fff;
+    padding: 2rem 0;
+}
+
+.heading-with-two-side-dots {
+    position: relative;
+    margin-bottom: 30px;
+}
+
+.heading-with-two-side-dots .heading-one {
+    font-family: Playfair Display;
+    font-size: 25px;
+    font-weight: 900;
+    line-height: 31px;
+    text-align: center;
+    padding-bottom: 1rem;
+    color: #023222 !important;
+    margin: 0;
+}
+
+.divider-with-two-side-dots {
+    position: absolute;
+    border: 1px solid #023222;
+    width: 25%;
+    right: 0;
+    left: 0;
+    margin: auto;
+}
+
+.divider-with-two-side-dots .left-dots {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #023222;
+    position: absolute;
+    top: -4px;
+    left: -5px;
+}
+
+.divider-with-two-side-dots .right-dots {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #023222;
+    position: absolute;
+    top: -5px;
+    right: -5px;
+}
+
+.fact-banner-img {
+    position: absolute;
+    bottom: -100px;
+    right: 0;
+    left: 0;
+    margin: auto;
+    text-align: center;
+}
+
+.fact-points {
+    list-style: none;
+}
+
+.fact-points .point-key {
+    font-family: Roboto;
+    font-size: 20px;
+    font-weight: 600;
+    line-height: 25px;
+    color: #023222;
+}
+
+.fact-points .point-value {
+    font-family: Roboto;
+    font-size: 16px;
+    font-weight: 500;
+    line-height: 25px;
+    text-align: left;
+}
+
+ul.fact-points {
+    padding: 2rem;
+    padding-top: 0;
+    margin: 0;
+}
+
+ul.fact-points li {
+    padding: 10px 0;
+    border-bottom: 1px solid gray;
+}
+
+.first-block,
+.second-block {
+    border-right: 3px solid gray;
+}
+
+.university-mandate {
+    text-align: center;
+}
+
+.university-mandate .heading {
+    font-family: Playfair Display;
+    font-size: 35px;
+    font-weight: 900;
+    line-height: 46.66px;
+}
+
+.university-mandate .content {
+    font-family: Roboto;
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 22px;
+    text-align: center;
+}
+
+#jv-facts-section .jv-fact-box.bg-white {
+    margin-bottom: 6rem !important;
+}
+
+section.university-mandate .theme-container {
+    border-bottom: 2px solid gray;
+}
+
+.university-mandate-container {
+    padding: 2rem 0;
+}
+
+.respects-section {
+    padding: 2rem 0;
+}
+
+.respects-section .heading {
+    font-family: Playfair Display;
+    font-size: 35px;
+    font-weight: 900;
+    line-height: 46.66px;
+    margin-top: 6rem;
+}
+
+.second-block ul li:last-of-type,
+.jv-fact-box.bg-white ul li:last-of-type,
+.third-block ul li:last-of-type {
+    border-bottom: 0;
+}
+
+#founder-section .heading {
+    font-family: Playfair Display;
+    font-size: 38px;
+    font-weight: 800;
+    line-height: 46.66px;
+    color: #023222;
+    margin: 0;
+    padding: 2rem 0;
+}
+
+#founder-section .two-side-dot-divider {
+    position: relative;
+    border: 1px solid #406355;
+    width: 350px;
+    margin: auto;
+}
+
+#founder-section .dot-one {
+    height: 10px;
+    width: 10px;
+    background: #023222;
+    border-radius: 50%;
+    position: absolute;
+    top: -5px;
+    left: -1px;
+}
+
+#founder-section .dot-two {
+    height: 10px;
+    width: 10px;
+    background: #023222;
+    border-radius: 50%;
+    position: absolute;
+    top: -5px;
+    right: -1px;
+}
+
+#founder-section .quote p {
+    font-family: Roboto;
+    font-size: 27.5px;
+    font-weight: 600;
+    line-height: 25px;
+    text-align: center;
+    padding-top: 4rem;
+}
+
+#founder-section .quote-author-name {
+    text-align: end;
+}
+
+#founder-section .quote-author-name p {
+    font-family: Roboto;
+    font-size: 27.64px;
+    font-weight: 700;
+    border: 1px solid #353532;
+    width: fit-content;
+    padding: 4px 46px;
+    border-radius: 26px;
+    padding: 0px 40px;
+    border-radius: 26px;
+    margin-left: 50px;
+}
+
+#founder-section div#person-details-container {
+    background: #023222;
+    padding: 3.3rem 0;
+}
+
+#founder-section #person-details-container .person-details-col {
+    padding-left: 100px;
+}
+
+#founder-section #person-details-container h2.heading-with-dot-underline {
+    color: #feb800;
+    font-family: Roboto;
+    font-size: 38.3px;
+    font-weight: 600;
+    line-height: 25px;
+    position: relative;
+}
+
+#founder-section #person-details-container .divider-with-dot {
+    border: 1px solid #feb800;
+    position: absolute;
+    bottom: 0;
+    /* width: 69.5%; */
+    width: 74.5%;
+    top: 40px;
+    left: -124px;
+}
+
+#founder-section #person-details-container .right-dot {
+    height: 8px;
+    width: 8px;
+    background: #feb800;
+    border-radius: 50%;
+    float: right;
+    margin-top: -4px;
+    margin-right: -8px;
+}
+
+#founder-section #person-details-container p.life-duration {
+    font-family: Roboto;
+    font-size: 22px;
+    font-weight: 400;
+    line-height: 25px;
+    color: #fff;
+    margin-top: 31px;
+    letter-spacing: 0.5px;
+}
+
+#founder-section #person-details-container p.details {
+    font-family: Roboto;
+    font-size: 18px;
+    font-weight: 400;
+    line-height: 24px;
+    color: #fff;
+    letter-spacing: -0.2px;
+}
+
+#founder-section #person-details-container ul.more-details {
+    color: #fff;
+    list-style: none;
+    padding: 0;
+}
+
+#founder-section #person-details-container span.li-label {
+    font-family: Roboto;
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 22px;
+    line-height: 37px;
+}
+
+#founder-section #person-details-container span.li-label-value {
+    font-family: Roboto;
+    font-size: 16px;
+    font-weight: 500;
+    line-height: 22px;
+}
+
+/*  */
+#founder-section .patent-overview {
+    padding: 0 0 3rem 0;
+}
+
+#founder-section .personal-overview {
+    padding: 3rem 0 3rem 0;
+    border-bottom: 2px solid #a3a19a;
+}
+
+#founder-section .personal-overview .content-heading {
+    font-family: Roboto;
+    font-size: 25px;
+    font-weight: 600;
+    line-height: 23px;
+    letter-spacing: 1px;
+}
+
+#founder-section .personal-overview .content {
+    font-size: 18px;
+    margin-top: 8px;
+    line-height: 28.6px;
+}
+
+#founder-section .divider {
+    border: 1px solid #023222;
+    position: absolute;
+    width: 450px;
+    left: -75px;
+    bottom: -11px;
+}
+
+#founder-section .dot {
+    height: 10px;
+    width: 10px;
+    border-radius: 50%;
+    background: #023222;
+    position: absolute;
+    right: -9px;
+    top: -5px;
+}
+
+#founder-section .heading-type-one {
+    font-family: Playfair Display;
+    font-size: 35px;
+    font-weight: 800;
+    line-height: 46.66px;
+    color: #023222;
+    padding-top: 2rem;
+    margin-left: 10px;
+    text-transform: uppercase;
+    letter-spacing: -1.3px;
+}
+
+#founder-section .officer-details-ul {
+    list-style: none;
+    padding: 1.5rem 0;
+    text-indent: -40px;
+    margin: 0;
+}
+
+#founder-section ul.officer-details-ul li {
+    position: relative;
+    text-indent: -18px;
+    padding: 0.5rem 3rem;
+    font-family: Roboto;
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 25px;
+    text-align: left;
+}
+
+#founder-section ul.officer-details-ul li span {
+    padding-left: 14px;
+    letter-spacing: 1px;
+}
+
+#founder-section .work-img {
+    text-align: end;
+    padding: 2rem 5rem;
+}
+
+#founder-section .articles-and-prototypes {
+    border-bottom: 2px solid #a3a19a;
+}
+
+#founder-section .prototype {
+    padding-left: 50px;
+    margin: 0;
+}
+
+#founder-section table#patent-table {
+    border-top: 10px solid #023222;
+    border-bottom: 10px solid #023222;
+}
+
+#founder-section #patent-table thead th {
+    font-family: Roboto;
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 25px;
+}
+
+#founder-section table#patent-table th,
+#founder-section table#patent-table td {
+    padding: 0.6rem 1rem;
+}
+
+#founder-section th,
+#founder-section td {
+    border-right: 0;
+}
+
+#founder-section th:nth-child(1),
+#founder-section td:nth-child(1) {
+    border-left: 0;
+}
+
+#founder-section table#patent-table th:nth-child(1),
+#founder-section table#patent-table td:nth-child(1) {
+    padding-left: 0;
+}
+
+#founder-section img.banner {
+    padding: 2rem 0;
+}
+
+#organization-chart-section .heading {
+    color: #023222;
+    font-family: Playfair Display;
+    font-size: 35px;
+    font-weight: 800;
+    line-height: 46.66px;
+    letter-spacing: 2px;
+}
+
+#organization-chart-section .heading-content {
+    text-align: center;
+}
+
+#organization-chart-section .section-divider {
+    border: 3px solid #023222;
+    opacity: 1;
+    margin: 42px 0;
+}
+
+#adminstration-page section#administration-section {
+    padding: 6rem 0;
+}
+
+#adminstration-page .administration-owner .member-box {
+    background: #023222;
+    padding: 20px 30px;
+    height: 600px;
+}
+
+#adminstration-page .administration-owner .member-name h2 {
+    font-family: Playfair Display;
+    font-size: 28px;
+    font-weight: 800;
+    line-height: 23px;
+    text-align: left;
+    color: #fff;
+    text-transform: uppercase;
+    letter-spacing: 1.1px;
+}
+
+#adminstration-page .administration-owner .member-profile img {
+    height: 430px;
+}
+
+#adminstration-page .administration-owner .member-content-divider {
+    border: 1px solid #fff;
+    opacity: 1;
+}
+
+#adminstration-page .administration-owner .member-designation p {
+    color: #ffff;
+    font-family: Roboto;
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 22px;
+    text-align: left;
+    margin: 0;
+    margin-top: 14px;
+}
+
+#adminstration-page .heading-container {
+    text-align: center;
+}
+
+#adminstration-page .members {
+    padding: 5rem 0;
+}
+
+#adminstration-page .members .heading {
+    font-family: Playfair Display;
+    font-size: 33px;
+    font-weight: 800;
+    line-height: 28px;
+    color: #023222;
+    background: #d0d0d0;
+    padding: 20px 0;
+}
+
+#adminstration-page .members .member-box {
+    background: #023222;
+    padding: 18px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+#adminstration-page .members .member-name h2 {
+    font-family: Playfair Display;
+    font-size: 20px;
+    font-weight: 800;
+    line-height: 26px;
+    text-align: center;
+    color: #fff;
+    letter-spacing: 1.1px;
+}
+
+#adminstration-page .members .member-content-divider {
+    border: 1px solid #fff;
+    opacity: 1;
+}
+
+#adminstration-page .members .member-designation p {
+    color: #ffff;
+    font-family: Roboto;
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 22px;
+    text-align: center;
+    margin: 0;
+    margin-top: 14px;
+}
+
+#adminstration-page .heading-container h2.heading {
+    font-family: Playfair Display;
+    font-size: 33px;
+    font-weight: 800;
+    line-height: 28px;
+    text-align: center;
+    color: #023222;
+    padding: 20px 0;
+    background: #d0d0d0;
+    margin: 0;
+}
+
+#committee-section .officer-details-content {
+    padding-left: 10px;
+}
+
+#committee-section .heading {
+    color: #023222;
+    font-family: Playfair Display;
+    font-size: 35px;
+    font-weight: 800;
+    line-height: 46.66px;
+    letter-spacing: -1.2px;
+}
+
+#committee-section .section-divider {
+    border: 1px solid #023222;
+    opacity: 1;
+    margin: 42px 0;
+}
+
+#committee-section .officer-details-ul {
+    list-style: none;
+    margin-top: 20px;
+    padding: 0;
+    padding-left: 2px;
+}
+
+#committee-section ul.officer-details-ul li span.label {
+    font-size: 20px;
+    font-weight: 600;
+    line-height: 37px;
+}
+
+#committee-section ul.officer-details-ul li span.label-value {
+    font-size: 18px;
+    letter-spacing: 0.3px;
+    font-weight: 500;
+    word-spacing: 1px;
+}
+
+
+#committee-section .heading-content .sub-heading {
+    font-family: Roboto;
+    font-size: 30px;
+    font-weight: 700;
+    line-height: 47px;
+    letter-spacing: 1px;
+    word-spacing: 3px;
+}
+
+#committee-section ul.anti-ranging-list {
+    list-style: none;
+    padding: 2rem 5.8rem;
+}
+
+#committee-section ul.anti-ranging-list li {
+    font-size: 19px;
+    letter-spacing: 1px;
+    font-weight: 600;
+    word-spacing: -1px;
+    line-height: 62.4px;
+}
+
+/* NAAC Section */
+#naac-section .recognitions-wrapper {
+    background: #d9d9d9;
+    border-radius: 25px;
+    padding: 3rem;
+    margin-bottom: 4rem;
+}
+
+#naac-section .establishment-heading {
+    font-family: Roboto;
+    font-size: 22px;
+    font-weight: 600;
+    line-height: 21px;
+    color: #faa61a;
+    background-color: #023222;
+    width: fit-content;
+    padding: 0.5rem 1rem;
+    margin-bottom: 2rem;
+}
+
+#naac-section .establishment-name {
+    font-family: Roboto;
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 21px;
+    text-align: center;
+    margin-top: 0.8rem;
+}
+
+#naac-section .establishment-img {
+    border: 1px solid #000;
+}
+
+#naac-section .heading {
+    font-family: Playfair Display;
+    font-size: 45.5px;
+    font-weight: 800;
+    line-height: 32px;
+    text-align: center;
+    color: #023222;
+    margin: 4rem 0;
+}
+
+#naac-section .tab-list li {
+    background: #023222;
+    border: 0;
+    border-bottom: 1px solid #fff;
+    color: #fff;
+    font-family: Roboto;
+    font-size: 22px;
+    font-weight: 500;
+    line-height: 50px;
+}
+
+#naac-section .tabs-container {
+    margin-bottom: 4rem;
+}
+
+#naac-section .tab-link {
+    background: #023222;
+    color: #fff;
+    border-radius: 0 !important;
+    width: 200px;
+    text-align: start;
+    border-bottom: 1px solid #fff;
+    padding: 1rem;
+}
+
+#naac-section .tab-link.active {
+    background: #023222 !important;
+}
+
+#naac-section .tab-link:hover {
+    color: #fff;
+}
+
+#naac-section .tab-heading {
+    font-family: Playfair Display;
+    font-size: 35px;
+    font-weight: 800;
+    line-height: 32px;
+    color: #023222;
+    margin-bottom: 2rem;
+}
+
+#naac-section .tab-content {
+    font-family: Roboto;
+    font-size: 18px;
+    font-weight: 500;
+    line-height: 24px;
+}
+
+#naac-section .tab-content {
+    background: #d9d9d9;
+    padding: 2rem;
+    width: 100%;
+}
+
+#naac-section .tab-link.active {
+    background: #faa61a !important;
+}
+
+/* End NAAC Section */
+
+/* Recognitions */
+#recognitions-section .recognitions-wrapper {
+    background: #d9d9d9;
+    border-radius: 25px;
+    padding: 0 1rem 2rem 1rem;
+    margin-bottom: 4rem;
+}
+
+#recognitions-section .establishment-heading {
+    font-family: Roboto;
+    font-size: 22px;
+    font-weight: 600;
+    line-height: 21px;
+    color: #faa61a;
+    background-color: #023222;
+    width: fit-content;
+    padding: 0.5rem 1rem;
+    margin-bottom: 1.5rem;
+}
+
+#recognitions-section .establishment-name {
+    font-family: Roboto;
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 21px;
+    text-align: center;
+    margin-top: 0.8rem;
+}
+
+#recognitions-section .establishment-img {
+    border: 1px solid #000;
+}
+
+/* End Recognitions */
+
+/* Regular Admission  */
+#regular-admission-page #admission-course-select-container {
+    justify-content: space-around;
+}
+
+#regular-admission-page #admission-course-select-container select.form-select {
+    background-color: transparent !important;
+    border: 1px solid #000;
+    border-radius: 20px;
+    color: #00000099;
+}
+
+
+#regular-admission-page #admission-course-select-container select.form-select option {
+    background-color: #fbf7ec !important;
+    color: #023222 !important;
+}
+
+#regular-admission-page .fee-arrangement-wrapper,
+#regular-admission-page .find-courses-wrapper {
+    position: relative;
+    background: #023222;
+    color: #fff;
+    padding: 0.6rem 1rem;
+    border-radius: 30px;
+}
+
+#regular-admission-page .fee-arrangement-wrapper span.label,
+#regular-admission-page .find-courses-wrapper span.label {
+    font-family: Roboto;
+    font-size: 18px;
+    font-weight: 400;
+    line-height: 28.25px;
+    text-align: center;
+}
+
+#regular-admission-page .fee-arrangement-wrapper span.label {
+    text-decoration: underline;
+}
+
+#regular-admission-page .find-courses-wrapper span.label {
+    padding-left: 0.5rem;
+}
+
+#regular-admission-page #download-icon {
+    position: absolute;
+    width: fit-content;
+    top: 10%;
+    right: 3%;
+}
+
+#regular-admission-page img.download-icon {
+    position: absolute;
+    left: 10%;
+    top: 0;
+    margin: auto;
+    right: 0;
+    bottom: 10%;
+}
+
+#regular-admission-page section#additional-top-section {
+    padding-top: 3rem;
+}
+
+#regular-admission-page #additional-top-section .row {
+    justify-content: space-between;
+}
+
+#regular-admission-page .divider {
+    margin: 3rem 0;
+}
+
+#regular-admission-page .course-type-name {
+    font-family: Roboto;
+    font-size: 30px;
+    font-weight: 800;
+    line-height: 32px;
+    letter-spacing: 0.02em;
+}
+
+#regular-admission-page .course-name {
+    font-family: Roboto;
+    font-size: 25px;
+    font-weight: 500;
+    line-height: 32px;
+    letter-spacing: 0.02em;
+}
+
+#regular-admission-page .course-item-name {
+    font-family: Roboto;
+    font-size: 22px;
+    font-weight: 500;
+    line-height: 24px;
+    letter-spacing: 0.02em;
+    margin-left: 30px;
+}
+
+#regular-admission-page .course-item-name-with-icon {
+    position: relative;
+    padding: 0.8rem 0;
+}
+
+#regular-admission-page .course-list {
+    padding-top: 1rem;
+}
+
+#regular-admission-page .course-item {
+    padding: 1rem 0;
+    /* border-bottom: 1px solid #023222; */
+    border-bottom: 1px solid #1E1E1E;
+}
+
+#regular-admission-page .course-item .row {
+    align-items: center;
+}
+
+#regular-admission-page .image-box img {
+    height: 439px;
+    object-fit: cover;
+}
+
+#regular-admission-page .know-more-btn {
+    padding: 0.8rem;
+    background: #023222;
+    color: #fff;
+    border-radius: 30px;
+    font-family: Roboto;
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 16px;
+    text-align: center;
+    width: 180px;
+    float: right;
+}
+
+#regular-admission-page span#secure-icon {
+    position: absolute;
+    top: 10px;
+}
+
+#regular-admission-page section#additional-bottom-section {
+    padding: 2rem 0;
+}
+
+.custom-download-btn .download-icon-with-ellipse .label {
+    font-family: Roboto;
+    font-size: 21.79px;
+    font-weight: 500;
+    line-height: 21.79px;
+    letter-spacing: 0.02em;
+    margin-left: 0.5rem;
+    white-space: nowrap;
+}
+
+.custom-download-btn {
+    background: #C4C4C4;
+    width: fit-content;
+    padding: 0.2rem 1rem;
+    padding-left: 0.5rem;
+    margin-bottom: 1.5rem;
+    margin-right: 1rem;
+    margin-top: 1.5rem;
+}
+
+.custom-download-btn .download-icon-with-ellipse {
+    display: flex;
+    align-items: center;
+}
+
+#regular-admission-page .table-heading {
+    font-family: Roboto;
+    font-size: 22px;
+    font-weight: 500;
+    line-height: 24px;
+    letter-spacing: 0.02em;
+    background-color: #FAA61A !important;
+    padding: 1rem !important;
+    border-right: 1px solid #023222 !important;
+    border-bottom: 1px solid #023222 !important;
+}
+
+#regular-admission-page .table td {
+    font-family: Roboto;
+    font-size: 18px;
+    font-weight: 500;
+    line-height: 24px;
+    letter-spacing: 0.02em;
+    background: #E1E1E1;
+    align-content: space-evenly;
+    border-bottom: 1px solid #023222;
+    padding-left: 1.5rem;
+}
+
+#regular-admission-page .table .sub-title {
+    font-family: Roboto;
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 16px;
+    letter-spacing: 0.02em;
+}
+
+#regular-admission-page .course-link {
+    background: #023222;
+    color: #fff;
+    padding: 0.5rem 1rem;
+    margin-right: 1rem;
+    text-decoration: underline;
+}
+
+#regular-admission-page .course-item-row {
+    cursor: pointer;
+}
+
+/* End Regular Admission  */
+
+/* Admission Process */
+#admission-process-page .top-header {
+    border-radius: 21px;
+    box-shadow: 5px 9px 14.4px 0px #00000040;
+    width: 69%;
+    margin: auto;
+    padding: 1.5rem 0;
+    background: #023222;
+    height: 8.5rem;
+    position: absolute;
+    top: -4rem;
+    left: 0;
+    right: 0;
+}
+
+#admission-process-page .section-with-floating-header {
+    position: relative;
+    margin-bottom: 4rem;
+}
+
+#admission-process-page .floating-content .title {
+    font-family: Playfair Display;
+    font-size: 25px;
+    font-weight: 600;
+    line-height: 34px;
+}
+
+#admission-process-page .top-header .top-header-title {
+    color: #fff;
+    font-family: Playfair Display;
+    font-size: 25px;
+    font-weight: 600;
+    line-height: 24.19px;
+    text-align: center;
+}
+
+#admission-process-page .top-header .top-header-sub-title {
+    color: #fff;
+    font-family: Roboto;
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 22px;
+    text-align: center;
+    padding: 0 8rem;
+}
+
+#admission-process-page .top-header .top-header-sub-title {
+    margin-top: 1rem;
+}
+
+#admission-process-page .bg-top-header-banner {
+    position: absolute;
+    top: 0;
+    mix-blend-mode: lighten;
+}
+
+#admission-process-page .floating-content {
+    /* padding: 7rem 6rem 6rem 6rem; */
+    padding: 9rem 3rem 6rem 3rem;
+    background: #112117;
+    border-radius: 2.5rem;
+}
+
+#admission-process-page .floating-content .title {
+    font-family: Playfair Display;
+    font-size: 25px;
+    font-weight: 600;
+    line-height: 34px;
+    text-align: left;
+    color: #FAA61A;
+}
+
+#admission-process-page .section-with-floating-header .sub-title {
+    text-indent: -26px;
+    padding-left: 1.5rem;
+    color: #fff;
+    font-family: Roboto;
+    font-size: 18px;
+    font-weight: 400;
+    text-align: left;
+    margin: 1rem 0;
+}
+
+#admission-process-page #prominent-note .sub-title {
+    text-indent: -26px;
+    padding-left: 1.5rem;
+    font-family: Roboto;
+    font-size: 18px;
+    font-weight: 500;
+    text-align: left;
+    margin: 1rem 0;
+}
+
+#admission-process-page #research-section .sub-title {
+    text-indent: -26px;
+    padding-left: 1.5rem;
+    font-family: Roboto;
+    font-size: 24px;
+    font-weight: 600;
+    text-align: left;
+    margin: 1rem 0;
+}
+
+#admission-process-page ul.sub-title-points li {
+    list-style: none;
+    font-weight: 300;
+    color: #ffffffed;
+    color: #fff;
+    font-family: Roboto;
+    font-size: 16px;
+    line-height: 30px;
+    text-align: left;
+    text-indent: -2rem;
+
+}
+
+#admission-process-page .floating-content {
+    background-repeat: no-repeat;
+    background-size: 100% 100%;
+}
+
+#admission-process-page .second-content-section {
+    margin-top: 6rem;
+}
+
+#admission-process-page .section-with-floating-header .sub-title::before {
+    padding-right: 0.5rem;
+}
+
+#admission-process-page #prominent-note .sub-title::before {
+    padding-right: 0.5rem;
+}
+
+#admission-process-page #research-section .sub-title::before {
+    padding-right: 0.5rem;
+}
+
+#admission-process-page .sub-title-points li::before {
+    padding-right: 0.5rem;
+}
+
+#admission-process-page #prominent-note .heading,
+#admission-process-page #research-section .heading {
+    font-family: Playfair Display;
+    font-size: 30px;
+    font-weight: 800;
+    line-height: 32px;
+    color: #023222;
+}
+
+#admission-process-page #research-section .heading {
+    text-align: center;
+}
+
+#admission-process-page #prominent-note .subtitle {
+    color: #023222;
+}
+
+#admission-process-page .prominent-note-cards .card {
+    margin-bottom: 2rem;
+}
+
+#admission-process-page .prominent-note-cards .card,
+#research-section .card {
+    background: #0b3123;
+    color: #fff;
+    border: 0;
+    border-radius: 0;
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
+    height: 245px;
+
+}
+
+#admission-process-page #research-section .research-cards {
+    margin: 2rem 0;
+}
+
+#admission-process-page #research-section .research-cards .card {
+    margin-bottom: 2rem
+}
+
+#admission-process-page .prominent-note-cards .card-body,
+#admission-process-page #research-section .card-body {
+    align-content: center;
+}
+
+#admission-process-page .prominent-title {
+    font-family: Roboto;
+    font-size: 27px;
+    font-weight: 500;
+    line-height: 32px;
+    text-align: center;
+    margin-top: 1rem;
+}
+
+#admission-process-page .prominent-sub-title {
+    font-family: Roboto;
+    font-size: 18px;
+    font-weight: 500;
+    line-height: 24px;
+    text-align: center;
+}
+
+#admission-process-page .admission-procedure-list li {
+    font-family: Roboto;
+    font-size: 17px;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+}
+
+#admission-process-page .apply-now-btn {
+    padding: 0.5rem 2rem;
+    background: #023222;
+    color: #FAA61A;
+    width: fit-content;
+    font-family: Roboto;
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 24.19px;
+    text-align: left;
+}
+
+#admission-process-page section#research-section {
+    padding-top: 1rem;
+    padding-bottom: 2rem;
+}
+
+/* End Admission Process */
+
+/* Loan and Scholarship */
+#loan-and-scholarship-page #loans-section {
+    padding: 4rem 0;
+}
+
+#loan-and-scholarship-page #loans-section .heading,
+#loan-and-scholarship-page #scholarship-section .heading {
+    font-family: Playfair Display;
+    font-size: 35px;
+    font-weight: 800;
+    line-height: 24.19px;
+    text-align: left;
+    margin-bottom: 2rem;
+}
+
+#loan-and-scholarship-page .content-section-with-image .content {
+    font-family: Roboto;
+    font-size: 18px;
+    font-weight: 500;
+    line-height: 25px;
+    letter-spacing: 0.02em;
+    text-align: left;
+    color: #fff;
+
+}
+
+#loan-and-scholarship-page .content-section-with-image .points li {
+    font-family: Roboto;
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 33px;
+    letter-spacing: 0.02em;
+    text-align: left;
+    color: #fff;
+}
+
+#loan-and-scholarship-page ul.points {
+    margin-top: 1.5rem;
+}
+
+#loan-and-scholarship-page #banks-providing-loans .heading {
+    font-family: Playfair Display;
+    font-size: 30px;
+    font-weight: 800;
+    line-height: 40px;
+    letter-spacing: 0.02em;
+    text-align: center;
+
+}
+
+#loan-and-scholarship-page .content-section-with-image {
+    background-color: #023222;
+    padding: 2rem 0;
+}
+
+#loan-and-scholarship-page .slick-prev.slick-arrow,
+#loan-and-scholarship-page .slick-next.slick-arrow {
+    display: none !important;
+}
+
+#loan-and-scholarship-page .custom-slick-slider {
+    position: relative;
+}
+
+#loan-and-scholarship-page .slick-arrows {
+    display: flex;
+    justify-content: space-between;
+    position: absolute;
+    width: 100%;
+    top: 43%;
+}
+
+#loan-and-scholarship-page .custom-slick-slider {
+    padding: 2rem 0;
+}
+
+#loan-and-scholarship-page .slick-items .item {
+    text-align: -webkit-center;
+}
+
+
+#loan-and-scholarship-page .slick-track {
+    display: flex;
+    align-items: center;
+}
+
+#loan-and-scholarship-page .loan-points-section .title {
+    font-family: Roboto;
+    font-size: 25px;
+    font-weight: 600;
+    line-height: 40px;
+    letter-spacing: 0.02em;
+
+}
+
+#loan-and-scholarship-page .loan-points-section .points li::before {
+    padding-right: 0.5rem;
+}
+
+#loan-and-scholarship-page .loan-points-section .points li {
+    list-style: none;
+    font-family: Roboto;
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 32px;
+    color: #1E1E1E;
+    text-indent: -1.5rem;
+}
+
+#loan-and-scholarship-page section.loan-points-section .theme-container {
+    padding: 3rem 0;
+    border-top: 2px solid #000;
+    border-bottom: 2px solid #000;
+}
+
+#loan-and-scholarship-page #scholarship-section {
+    padding: 3rem 0;
+}
+
+#loan-and-scholarship-page #scholarship-section .content p {
+    font-family: Roboto;
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 24px;
+    letter-spacing: 0.02em;
+    color: #1E1E1E;
+}
+
+#loan-and-scholarship-page .loan-departments .card-header {
+    background-color: #023222;
+    color: #fff;
+    padding: 2rem 0;
+
+}
+
+#loan-and-scholarship-page .loan-departments .card-header h6 {
+    font-family: Roboto;
+    font-size: 22px;
+    font-weight: 400;
+    line-height: 24px;
+    letter-spacing: 0.02em;
+    text-align: center;
+
+}
+
+#loan-and-scholarship-page .loan-departments .card-header h5 {
+    font-family: Playfair Display;
+    font-size: 25px;
+    font-weight: 800;
+    line-height: 24px;
+    letter-spacing: 0.02em;
+    text-align: center;
+
+}
+
+#loan-and-scholarship-page #loan-department-table th {
+    font-family: Roboto;
+    font-size: 22px;
+    font-weight: 500;
+    line-height: 24px;
+    letter-spacing: 0.02em;
+    text-align: left;
+    color: #1E1E1E;
+
+}
+
+#loan-and-scholarship-page #loan-department-table td {
+    align-content: center;
+}
+
+#loan-and-scholarship-page #loan-department-table tr:last-of-type {
+    border: 0 !important;
+    border-left: 0 !important;
+    border-right: 0 !important;
+}
+
+#loan-and-scholarship-page #loan-department-table tr:last-of-type td:first-of-type {
+    border-left: 0;
+}
+
+#loan-and-scholarship-page #loan-department-table tr:last-of-type td:last-of-type {
+    border-right: 0;
+}
+
+#loan-and-scholarship-page #loan-department-table td,
+#loan-and-scholarship-page #loan-department-table th,
+#loan-and-scholarship-page #loan-department-table tr {
+    background-color: #D9D9D9 !important;
+    padding: 1.5rem 1rem !important;
+    border-color: #023222;
+}
+
+#loan-and-scholarship-page .loan-departments {
+    margin: 2rem 0;
+}
+
+#loan-and-scholarship-page .loan-departments .card {
+    border: 0;
+    border-radius: 5rem;
+    overflow: hidden;
+}
+
+/* <<<<<<< HEAD */
+
+.fw-4 {
+    font-weight: 400 !important;
+}
+
+.fw-5 {
+    font-weight: 500 !important;
+}
+
+.fw-6 {
+    font-weight: 600 !important;
+}
+
+.fw-7 {
+    font-weight: 700 !important;
+}
+
+.fw-8 {
+    font-weight: 800 !important;
+}
+
+.custom-border-rounded-1 {
+    border-radius: 20px !important;
+}
+
+.hr-div {
+    width: 100%;
+    height: 1px;
+    background: #000000;
+    margin: 20px 0px;
+}
+
+.custom-widht-td {
+    width: 80%;
+}
+
+.bg-secondary-2 {
+    background: #D9D9D9 !important;
+}
+
+/* End Loan and Scholarship */
+
+/* Course Outcomes */
+#course-outcomes-page .faculty-table td:first-of-type {
+    width: 80%;
+}
+
+#course-outcomes-page .faculty-table tr,
+#course-outcomes-page .faculty-table td {
+    background-color: #D9D9D9 !important;
+    border: 1px solid #000;
+}
+
+#course-outcomes-page .faculty-table td {
+    padding-left: 1rem !important;
+}
+
+#course-outcomes-page #faculty-list-section .faculty-item .faculty-name {
+    font-family: Roboto;
+    font-size: 25px;
+    font-weight: 600;
+    line-height: 22px;
+    letter-spacing: 0.02em;
+    color: #023222;
+    margin-bottom: 0;
+}
+
+#course-outcomes-page .faculty-table td.department-heading {
+    font-family: Roboto;
+    font-size: 22px;
+    font-weight: 600;
+    line-height: 22px;
+    letter-spacing: 0.02em;
+    color: #1E1E1E;
+}
+
+#course-outcomes-page .faculty-table td.course-heading,
+#course-outcomes-page .faculty-table td.download-pdf {
+    font-family: Roboto;
+    font-size: 16px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    color: #1E1E1E;
+
+}
+
+#course-outcomes-page .faculty-item {
+    padding: 1rem 0;
+}
+
+#course-outcomes-page .faculty-item:last-of-type {
+    padding-bottom: 4rem !important;
+}
+
+/* End Course Outcomes */
+
+/* Fee */
+#fee-payment-page .sub-heading {
+    font-family: Roboto;
+    font-size: 22px;
+    font-weight: 500;
+    line-height: 22px;
+    letter-spacing: 0.02em;
+    color: #1E1E1E;
+    margin-top: 1rem;
+}
+
+#fee-payment-page .section-title {
+    font-family: Roboto;
+    font-size: 25px;
+    font-weight: 700;
+    line-height: 22px;
+    letter-spacing: 0.02em;
+    color: #023222;
+}
+
+#fee-payment-page .new-student-content .note,
+#fee-payment-page .enrolled-students-wrapper .note {
+    font-family: Roboto;
+    font-size: 15px;
+    font-weight: 400;
+    line-height: 22px;
+    letter-spacing: 0.02em;
+    color: #1E1E1E;
+    margin-top: 1rem;
+    margin-bottom: 3rem;
+}
+
+#fee-payment-page .online-payment-terms {
+    font-family: Roboto;
+    font-size: 16px;
+    font-weight: 500;
+    line-height: 24px;
+    letter-spacing: 0.02em;
+    color: #1E1E1E;
+    margin: 1rem 0;
+}
+
+#fee-payment-page .point {
+    font-family: Roboto;
+    font-size: 18px;
+    font-weight: 500;
+    line-height: 25px;
+    letter-spacing: 0.02em;
+    text-indent: -18px;
+    padding-left: 1rem;
+    margin: 1rem 0;
+
+    color: #1E1E1E;
+}
+
+#fee-payment-page .online-payment-link {
+    font-family: Roboto;
+    font-size: 25px;
+    font-weight: 700;
+    line-height: 22px;
+    letter-spacing: 0.02em;
+    text-align: center;
+    color: #FFFFFF;
+    background: #023222;
+    padding: 0.5rem 1.5rem;
+}
+
+#fee-payment-page .new-students-wrapper {
+    border-bottom: 1px solid #000;
+    padding-bottom: 4rem;
+}
+
+#fee-payment-page .enrolled-students-wrapper {
+    padding: 3rem 0;
+    border-bottom: 1px solid #000;
+}
+
+#fee-payment-page .section-sub-heading {
+    font-family: Roboto;
+    font-size: 16px;
+    font-weight: 500;
+    line-height: 24px;
+    letter-spacing: 0.02em;
+    color: #1E1E1E;
+
+}
+
+#fee-payment-page .enrolled-student-content {
+    padding: 0 2rem;
+}
+
+#fee-payment-page .enrolled-student-content .note {
+    margin-bottom: 2rem;
+
+}
+
+#fee-payment-page .enrolled-student-img {
+    box-shadow: -11px 7px 24px #80808085;
+}
+
+#fee-payment-page .bank-details-wrapper .title {
+    font-family: Roboto;
+    font-size: 25px;
+    font-weight: 700;
+    line-height: 22px;
+    letter-spacing: 0.02em;
+    text-align: center;
+}
+
+#fee-payment-page .bank-details-wrapper .note {
+    font-family: Roboto;
+    font-size: 16px;
+    font-weight: 500;
+    line-height: 24px;
+    letter-spacing: 0.02em;
+    color: #1E1E1E;
+    text-align: center;
+}
+
+#fee-payment-page .axis-bank-btn-link {
+    font-family: Roboto;
+    font-size: 25px;
+    font-weight: 700;
+    line-height: 22px;
+    letter-spacing: 0.02em;
+    text-align: center;
+    color: #fff;
+    background: #023222;
+    padding: 0.8rem 3rem;
+    margin: 2rem auto;
+    width: fit-content;
+}
+
+#fee-payment-page a.axis-bank-link {
+    color: #fff;
+}
+
+#fee-payment-page .bank-details-wrapper {
+    padding: 3rem 0;
+}
+
+
+#fee-payment-page .new-student-wrapper img {
+    box-shadow: -10px 10px 22px #80808082;
+}
+
+#fee-payment-page .new-student-wrapper {
+    text-align: end !important;
+}
+
+/* End Fee */
+
+
+.oone {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 31px 33px;
+}
+
+
+.abc {
+
+    width: 202.02px;
+    height: 285.86px;
+
+}
+
+.abc img {
+    box-shadow: -4px 4px 6.7px 0px #00000040;
+}
+
+.respects-section ul.points li {
+    position: relative;
+}
+
+.respects-section ul.points li:before {
+    content: url(http://localhost/jvwu/public/icons/our-core-values-icon.svg);
+    position: absolute;
+    top: 5px;
+    left: -30px;
+}
+
+.respects-section .points li {
+    font-family: Roboto;
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 33px;
+    text-align: left;
+}
+
+ul.officer-details-ul li .label {
+    padding-left: 1rem;
+}
+
+.placement-index {
+    padding-top: 9rem;
+}
+
+/* responsive */
+@media (max-width: 1284px) {
+    .about-section .about-jvwu-col .divider {
+        left: 0;
+    }
+
+}
+
+
+/* responsive end */
+@media (max-width: 991px) {
+
+    /* Menu Toggle */
+
+    .header-menus-start {
+        padding: 0;
+        justify-content: end !important;
+    }
+
+    #navbarSupportedContent ul.navbar-nav li.nav-item .nav-link {
+        font-size: 1rem !important;
+    }
+
+    button.navbar-toggler {
+        margin-right: 1rem;
+    }
+
+    .header-menus li.nav-item {
+        padding: 0.5rem 1rem;
+        border-bottom: 1px solid #80808085;
+    }
+
+    .header-menus .dropdown-toggled::after {
+        position: absolute;
+        right: 1rem;
+    }
+
+    .header-menus li.nav-item.active {
+        border-radius: 0 !important;
+        background-color: #025e3f !important;
+        padding: 0.5rem 1rem;
+    }
+
+    ul.dropdown-menu.show {
+        box-shadow: none !important;
+    }
+
+    header .header-menus .dropdown-menu a.dropdown-item {
+        padding: 0.2rem 0;
+    }
+
+    /* End Menu Toggle */
+
+}
+
+@media(min-width:1200px) and (max-width:1480px) {
+    .header-menus img.logo-bg {
+        /* width: 13vw; */
+        top: -7px;
+    }
+
+    .header-menus .nav-link {
+        font-size: 1.1vw;
+    }
+
+    footer .footer-top .box {
+        margin-top: 1rem !important;
+        width: 100% !important;
+    }
+
+    footer .footer-main .footer-first-column,
+    footer .footer-main .footer-second-column,
+    footer .footer-main .footer-third-column,
+    footer .footer-main .footer-fourth-column {
+        width: 25% !important;
+    }
+
+    footer .footer-main .footer-social-links li {
+        padding: 0 2px;
+    }
+
+    section#organization-chart-section {
+        padding: 6rem 0;
+    }
+
+    .placement-index {
+        padding-top: 10rem;
+    }
+
+
+    .gallery-section .gallery-card-textbox p {
+        font-size: 14px !important;
+    }
+
+    .gallery-section .gallery-card-textbox .video-title {
+        font-size: 14px !important;
+        line-height: 17px !important;
+        padding: 1rem 0 !important;
+    }
+
+}
+
+@media(min-width:1480px) {
+    .header-menus-start {
+        margin: 0 1rem;
+    }
+
+    footer .footer-main .footer-fourth-column {
+        width: 571px;
+        padding: 0;
+    }
+
+    footer .footer-main .footer-first-column,
+    footer .footer-main .footer-second-column,
+    footer .footer-main .footer-third-column,
+    footer .footer-main .footer-fourth-column {
+        width: 25% !important;
+    }
+
+    footer .footer-main .footer-social-links li {
+        padding: 0 7px;
+    }
+
+    section#organization-chart-section {
+        padding: 6rem 0;
+    }
+
+    .gallery-section .gallery-card-textbox .video-title {
+        padding: 1rem 0 !important;
+    }
+
+}
+
+.w-fit-content {
+    width: fit-content !important;
+}
+
+.ff-playfair-display {
+    font-family: Playfair Display !important;
+}
+
+.f-32 {
+    font-size: 32px !important;
+}
+
+#skills-development-program-page #about-section {
+    position: relative;
+}
+
+#skills-development-program-page #sdc-heading-section {
+    padding: 3rem 0;
+}
+
+#skills-development-program-page #sdc-heading-section .heading,
+#skills-development-program-page #contact-us-section .heading {
+    font-family: Playfair Display;
+    font-size: 32px;
+    font-weight: 800;
+    line-height: 40px;
+    letter-spacing: 0.02em;
+    color: #FAA61A;
+    background-color: #023222;
+    width: fit-content;
+    padding: 0.5rem 3rem;
+}
+
+#skills-development-program-page #voluntary-certification-section {
+    padding: 2rem 0;
+}
+
+#skills-development-program-page .heading-with-bg {
+    background: #faa61a;
+    color: #1E1E1E;
+    width: fit-content;
+    padding: 0.5rem 1rem;
+}
+
+
+#skills-development-program-page .small-heading-with-bg span {
+    font-family: Roboto;
+    font-size: 20px;
+    font-weight: 500;
+    line-height: 24px;
+    letter-spacing: 0.02em;
+}
+
+#skills-development-program-page .normal-heading-with-bg span {
+    font-family: Roboto;
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 32px;
+    letter-spacing: 0.02em;
+    text-align: left;
+
+}
+
+#skills-development-program-page #voluntary-certification-section .title {
+    font-family: Roboto;
+    font-size: 35px;
+    font-weight: 700;
+    line-height: 48px;
+    letter-spacing: 0.02em;
+    color: #023222;
+    padding: 1rem 0;
+}
+
+#skills-development-program-page #about-section {
+    padding: 2rem 0;
+    background: #023222;
+}
+
+#skills-development-program-page .about-content p,
+#skills-development-program-page .about-content .points li {
+    font-family: Roboto;
+    font-size: 18px;
+    font-weight: 300;
+    line-height: 2rem;
+    letter-spacing: 0.02em;
+    color: #fff;
+    margin: 0;
+}
+
+#skills-development-program-page .about-content {
+    padding: 2rem 0;
+}
+
+#skills-development-program-page .about-container {
+    padding: 3rem 0;
+    border-bottom: 1px solid #ffffffdb;
+}
+
+#skills-development-program-page .about-content .about-img {
+    position: absolute;
+    top: 0;
+    right: 0;
+}
+
+#skills-development-program-page .accordion-button:not(.collapsed) {
+    color: #fff;
+}
+
+#skills-development-program-page button.accordion-button {
+    font-family: Roboto;
+    font-size: 22px;
+    font-weight: 500;
+    line-height: 24px;
+    letter-spacing: 0.02em;
+    text-align: left;
+    color: #fff;
+}
+
+#skills-development-program-page .accordion,
+#skills-development-program-page .accordion-item {
+    border-radius: 0 !important;
+    margin: 1rem 0;
+}
+
+#skills-development-program-page #about-section .accordion-button {
+    background: #064631 !important;
+    color: #fff;
+    padding: 0.8rem 1rem;
+}
+
+#skills-development-program-page .accordion-item {
+    border: 0;
+}
+
+#skills-development-program-page button.accordion-button.collapsed,
+#skills-development-program-page .accordion-item:first-of-type>.accordion-header .accordion-button {
+    border-radius: 0 !important;
+    padding: 0.8rem 1rem;
+}
+
+#skills-development-program-page .skill-programs-container {
+    padding: 3rem 0;
+}
+
+#skills-development-program-page #collaboration-centre-section {
+    padding-top: 3rem;
+}
+
+#skills-development-program-page #collaboration-centre-section .title {
+    font-family: Roboto;
+    font-size: 35px;
+    font-weight: 700;
+    line-height: 32px;
+    letter-spacing: 0.02em;
+    color: #023222;
+}
+
+#skills-development-program-page #collaboration-centre-section .sub-title {
+    font-family: Roboto;
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 32px;
+    letter-spacing: 0.02em;
+    color: #023222;
+    margin: 1rem 0;
+}
+
+#skills-development-program-page .collaboration-centers {
+    margin-top: 2rem;
+    padding-bottom: 5rem;
+    border-bottom: 1px solid #000;
+}
+
+#skills-development-program-page .collaboration-centers>.collaboration-center {
+    border: 1px solid #000;
+    padding: 2rem;
+}
+
+#skills-development-program-page .row.collaboration-centers .collaboration-center:nth-child(3n + 1) {
+    border-left: 0;
+}
+
+#skills-development-program-page .row.collaboration-centers .collaboration-center:nth-child(3n + 3) {
+    border-right: 0;
+}
+
+#skills-development-program-page .row.collaboration-centers .collaboration-center:nth-child(-n + 3) {
+    border-top: 0;
+}
+
+#skills-development-program-page .row.collaboration-centers .collaboration-center:nth-last-child(-n + 3) {
+    border-bottom: navajowhite;
+}
+
+#skills-development-program-page .collaboration-center .center-name {
+    font-family: Roboto;
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 32px;
+    letter-spacing: 0.02em;
+    color: #1E1E1E;
+}
+
+#skills-development-program-page .collaboration-center .person-name {
+    font-family: Roboto;
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 40px;
+    letter-spacing: 0.02em;
+
+    color: #1E1E1E;
+}
+
+#skills-development-program-page .collaboration-center .center-address,
+#skills-development-program-page .collaboration-center .center-contact-number {
+    font-family: Roboto;
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 24px;
+    letter-spacing: 0.02em;
+    color: #1E1E1E;
+
+}
+
+
+#skills-development-program-page section#contact-us-section {
+    padding: 3rem 0;
+}
+
+#skills-development-program-page #contact-us-section .title {
+    font-family: Roboto;
+    font-size: 23.65px;
+    font-weight: 700;
+    line-height: 34.4px;
+    letter-spacing: 0.02em;
+    color: #1E1E1E;
+}
+
+#skills-development-program-page #contact-us-section .sub-title {
+    font-family: Roboto;
+    font-size: 17.2px;
+    font-weight: 400;
+    line-height: 25.8px;
+    letter-spacing: 0.02em;
+    text-align: center;
+
+    color: #1E1E1E;
+}
+
+#skills-development-program-page #contact-us-section .email-label {
+    font-family: Roboto;
+    font-size: 17.2px;
+    font-weight: 600;
+    line-height: 25.8px;
+    letter-spacing: 0.02em;
+    text-align: center;
+}
+
+#skills-development-program-page #success-stories-section .title {
+    font-family: Roboto;
+    font-size: 35px;
+    font-weight: 700;
+    line-height: 48px;
+    letter-spacing: 0.02em;
+    color: #023222;
+}
+
+#skills-development-program-page #success-stories-section .accordion-button {
+    background: #DBDBDB !important;
+    color: #023222 !important;
+    font-family: Roboto;
+    font-size: 20px;
+    font-weight: 500;
+    line-height: 24px;
+    letter-spacing: 0.02em;
+}
+
+#skills-development-program-page #success-stories-section button.accordion-button {
+    padding: 0.5rem 1rem !important;
+}
+
+#skills-development-program-page section#success-stories-section {
+    padding: 2rem 0;
+}
+
+#skills-development-program-page section#programme-list {
+    padding: 2rem 0;
+}
+
+#skills-development-program-page #programme-list .card-header {
+    background-color: #023222;
+    color: #fff;
+    padding: 2rem 0;
+
+}
+
+#skills-development-program-page #programme-list .card-header h6 {
+    font-family: Roboto;
+    font-size: 22px;
+    font-weight: 400;
+    line-height: 24px;
+    letter-spacing: 0.02em;
+    text-align: center;
+}
+
+#skills-development-program-page #programme-list .card-header h5 {
+    font-family: Roboto;
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 50px;
+    letter-spacing: 0.02em;
+    text-align: center;
+
+}
+
+#skills-development-program-page #programme-list #progamme-table th {
+    font-family: Roboto;
+    font-size: 18px;
+    font-weight: 500;
+    line-height: 24px;
+    letter-spacing: 0.02em;
+    text-align: center;
+    color: #1E1E1E;
+
+}
+
+#skills-development-program-page #programme-list #progamme-table td {
+    font-family: Roboto;
+    font-size: 16px;
+    font-weight: 300;
+    line-height: 24px;
+    letter-spacing: 0.02em;
+    text-align: center;
+    color: #1E1E1E;
+    align-content: center;
+}
+
+#skills-development-program-page #programme-list #progamme-table .programme-name {
+    font-size: 16px;
+    font-weight: 500;
+}
+
+#skills-development-program-page #programme-list #progamme-table ul {
+    list-style: none;
+    padding: 0 !important;
+}
+
+
+#skills-development-program-page #programme-list #progamme-table tr:last-of-type {
+    border: 0 !important;
+    border-left: 0 !important;
+    border-right: 0 !important;
+}
+
+#skills-development-program-page #programme-list #progamme-table tr:last-of-type td:first-of-type {
+    border-left: 0;
+}
+
+#skills-development-program-page #programme-list #progamme-table tr:last-of-type td:last-of-type {
+    border-right: 0;
+}
+
+#skills-development-program-page #programme-list #progamme-table td,
+#skills-development-program-page #programme-list #progamme-table th,
+#skills-development-program-page #programme-list #progamme-table tr {
+    background-color: #023222 !important;
+    padding: 1.5rem 1rem !important;
+    border-color: #fff;
+    color: #fff;
+}
+
+#skills-development-program-page #programme-list .card {
+    border: 0;
+    border-radius: 5rem;
+    overflow: hidden;
+}
+
+#skills-development-program-page .charge-container .points li {
+    font-family: Roboto;
+    font-size: 23.65px;
+    font-weight: 500;
+    line-height: 34.4px;
+    letter-spacing: 0.02em;
+    color: #1E1E1E;
+}
+
+#skills-development-program-page .charge-container {
+    padding-top: 3rem;
+}
+
+#skills-development-program-page .prominent-academic-features-container h4 {
+    font-family: Roboto;
+    font-size: 35px;
+    font-weight: 700;
+    line-height: 48px;
+    letter-spacing: 0.02em;
+    color: #023222;
+
+}
+
+#skills-development-program-page .prominent-academic-features-container .points li {
+    font-family: Roboto;
+    font-size: 23.65px;
+    font-weight: 500;
+    line-height: 34.4px;
+    letter-spacing: 0.02em;
+    color: #1E1E1E;
+}
+
+#skills-development-program-page .prominent-academic-features-container {
+    padding-top: 2rem;
+}
+
+.nav-header-logo {
+    display: none;
+}
+
+footer .footer-site-content {
+    display: flex;
+    flex-direction: column;
+}
+
+.teacher-name-container:has(.teacher-without-department) {
+    justify-content: center !important;
+}
+
+/*  */
+/* Header */
+header .header-menus ul.dropdown-menu {
+    border: 0;
+    border-radius: 0;
+    padding: 0;
+    box-shadow: 2px 2px 22px #80808085;
+    margin-top: 6px;
+}
+
+/* header .header-menus a.dropdown-item:hover,
+header .header-menus a.dropdown-item:active {
+    background: #023222 !important;
+    color: #fff !important;
+} */
+
+
+header .header-menus li:hover{
+    border-radius: 8px;
+}
+header .header-menus li:hover > a{
+    transition:none !important;
+    color: #fff !important;
+}
+
+header .header-menus li:hover,
+header .header-menus li:hover > a.dropdown-item,
+header .header-menus a.dropdown-item:active {
+    background: #023222 !important;
+    color: #fff !important;
+}
+
+header .header-menus a.dropdown-item {
+    padding: 0.5rem 1rem;
+}
+
+/* End Header */
+
+.header-menus .dropdown-toggled::after {
+    content: url('{{ asset("icons/down-arrow.png") }}');
+}
+
+.dropdown-menu .parent-link {
+    display: none;
+}
+
+.page-heading-section {
+    padding: 6rem 0;
+}
+
+.page-heading-section .heading {
+    font-family: Playfair Display;
+    /* font-size: 45.5px; */
+    font-size: 39.5px;
+    font-weight: 800;
+    line-height: 32px;
+    text-align: center;
+    margin-bottom: 1rem;
+    color: #023222;
+}
+
+.page-heading-section .content {
+    font-family: Roboto;
+    font-size: 16px;
+    font-weight: 500;
+    line-height: 21px;
+    text-align: center;
+}
+
+
+hr {
+    opacity: 0.5;
+}
+
+.ckeditor-content {
+    width: 100%;
+    overflow: auto;
+}
+
+.ckeditor-content a {
+    text-decoration: none;
+}
+
+.ckeditor-content table tr,
+.ckeditor-content table td,
+.ckeditor-content table th {
+    /* border: 1px solid black; */
+    /* padding: 10px; */
+}
+
+@media (max-width: 992px) {
+    .dropdown-menu .parent-link {
+        display: block;
+    }
+}
+
+.mobile-side-button,
+.mobile-bottom-button {
+    display: none;
+}
+
+
+.header-menus .navbar-toggler {
+    padding: 7px;
+    border-radius: 10px;
+}
+
+#loader {
+    width: 100%;
+    height: 100vh;
+    position: fixed;
+    z-index: 9999;
+    /* background: url({{ asset('logo/logo.png') }}) no-repeat center center rgba(173, 15, 15, 0.25); */
+    /* background-size: 100px; */
+    background-color: #00000035;
+
+    transition: height 0.2s linear;
+    text-align: center;
+    display: none;
+}
+
+#loader .spinner-border {
+    position: absolute;
+    top: 50vh;
+}
+
+footer .footer-top-row .vertical {
+    display: none;
+}
+/*  */
+/* exam-rules-regulation css */
+#exam-rules-regulation table {
+    margin:30px 0px !important ;
+      caption-side: bottom;
+      border-collapse: separate;
+      width: 100%;
+  }
+  #exam-rules-regulation .roundedCorners th{
+    background: #023222;
+    color:#fff;
+    font-family: Roboto;
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 50px;
+    letter-spacing: 0.02em;
+    text-align: center;
+  
+  }
+  #exam-rules-regulation .roundedCorners td{
+  font-family: Roboto;
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 50px;
+  letter-spacing: 0.02em;
+  text-align: left;
+  }
+  #exam-rules-regulation table.roundedCorners { 
+    border: 1px solid #000;
+    border-radius: 20px; 
+    border-spacing: 0px;
+    overflow: hidden;
+    }
+    #exam-rules-regulation table.roundedCorners td, 
+    #exam-rules-regulation table.roundedCorners th { 
+    border-right: 1px solid #000;
+    border-bottom: 1px solid #000;
+    }
+   
+    #exam-rules-regulation table.roundedCorners tr:last-child > td {
+    border-bottom: none;
+  }
+  #exam-rules-regulation table.roundedCorners th:last-child ,
+  #exam-rules-regulation  table.roundedCorners td:last-child
+    {
+   
+     border-right: none;
+  }
+
+  #exam-rules-regulation table.marks_rules_table th:nth-child(1) {
+    text-align: left; 
+    width:70%;
+    padding-left:20%;
+    }
+
+    #exam-rules-regulation table.marks_rules_table td {
+        text-align: left; 
+        
+        padding-left:72px;
+        }
+
+    #exam-rules-regulation table.marks_rules_table th:nth-child(2) {
+        width:30%;
+        }
+  
+  #exam-rules-regulation table.marks_rules_table tr td:nth-child(2) {
+     background: #FEB80054;
+   }
+  #exam-rules-regulation table.category_rules-table tr td:nth-child(1) {
+    text-align: center;
+    background: #FEB80054;
+    }
+    #exam-rules-regulation .category_rules-table th:nth-child(2) {
+        text-align: left;
+        padding-left: 72px;
+         }
+         
+     #exam-rules-regulation table.category_rules-table td  {
+            padding-left: 72px;
+            }
+  
+     
+   #exam-rules-regulation .rules-div{
+    width: 100%;
+    padding: 100px 0px 0px 0px;
+  }
+
+  #exam-rules-regulation .horizontal-line{
+   color: #000;
+   height: 1px;
+}
+#exam-rules-regulation .rules_one{
+    background: #023222;
+    border-radius: 5px;
+    width:fit-content;
+    padding:5px 28px 5px 20px;
+}
+#exam-rules-regulation .rules_all {
+    background: #023222;
+    border-radius: 15px;
+    width:100%;
+    padding:20px;
+    color:#fff;
+    font-family: Roboto;
+    font-size: 18px;
+    font-weight: 400;
+    line-height: 45px;
+    letter-spacing: 0.02em;
+    text-align: left;
+    margin-bottom: 0px;
+}
+#exam-rules-regulation .rule_one_content {
+    color:#ffff;
+    font-family: Roboto;
+    font-size: 18px;
+    font-weight: 400;
+    line-height: 32px;
+    letter-spacing: 0.02em;
+    text-align: left;
+    margin-bottom: 0px;
+}
+#exam-rules-regulation .rule_one_content ol {
+  margin-bottom: 0px;
+}   
+    
+#exam-rules-regulation .examination-process-div{
+    width: 100%;
+}
+#exam-rules-regulation .examination-process-div img{
+    width:100%;
+}
+   
+/* end */
+
+/* authorities page */
+@media(min-width:1024px){
+    #authoritiesPage .authorities-div{
+         width: 100%;
+         padding:100px 0px;
+    }    
+     }
+     
+    
+     #authoritiesPage table {
+     margin:30px 0px !important ;
+       caption-side: bottom;
+       border-collapse: separate;
+       width: 100%;
+   }
+   #authoritiesPage .roundedCorners th{
+     background: #023222;
+     color:#fff;
+     font-family: Roboto;
+     font-size: 22px;
+     font-weight: 700;
+     line-height: 50px;
+     letter-spacing: 0.02em;
+     text-align: center;
+   
+   }
+ 
+   #authoritiesPage .roundedCorners td{
+   font-family: Roboto;
+   font-size: 16px;
+   font-weight: 400;
+   line-height: 50px !important;
+   letter-spacing: 0.02em;
+   text-align: left;
+   
+   }
+   #authoritiesPage table.roundedCorners { 
+     border: 1px solid #000;
+     border-radius: 20px; 
+     border-spacing: 0px;
+     overflow: hidden;
+     }
+     #authoritiesPage table.roundedCorners td, 
+     #authoritiesPage table.roundedCorners th { 
+     border-right: 1px solid #000;
+     border-bottom: 1px solid #000;
+     }
+    
+     #authoritiesPage table.roundedCorners tr:last-child > td {
+     border-bottom: none;
+   }
+   #authoritiesPage table.roundedCorners th:last-child ,
+   #authoritiesPage  table.roundedCorners td:last-child
+     {
+    
+      border-right: none;
+   }
+   
+     #authoritiesPage  .authorities-table tr td:nth-child(3) {
+             background: #FEB80054;
+ 
+         }
+         #authoritiesPage   .authorities-table td:nth-child(4) {
+         color:#FF0000;
+         }
+   
+   
+    @media(min-width:1024px){
+     #authoritiesPage .authorities-table td {
+         padding-left: 32px !important;
+         }
+         #authoritiesPage .authorities-table td:nth-child(4) {
+         padding-left: 50px;
+         }
+    }
+/* end authorities  */
+
+/* nirf page css */
+.nirf-div{
+    padding:40px 0px;
+}
+
+#nirfPage .sub-heading{
+    color: #023222;
+    font-family: Playfair Display;
+    font-size: 35px;
+    font-weight: 800;
+    line-height: 40px;
+    letter-spacing: 0.02em;
+    text-align: left;
+}
+#nirfPage .sub-heading-year{
+    color: #023222;
+    font-family: Playfair Display;
+    font-size: 40px;
+    font-weight: 800;
+    line-height: 40px;
+    letter-spacing: 0.02em;
+    text-align: left;
+
+}
+#nirfPage ul li {
+    list-style: none;
+}
+#nirfPage .nirflink{		
+    color:#FF0000;
+    font-family: Roboto;
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 44px;
+    letter-spacing: 0.02em;
+    text-align: left;
+    border-bottom: 1px solid #FF0000;
+    text-decoration: none;
+
+}
+#nirfPage .nirf-vectorimg{
+    margin-right: 2%;
+
+}
+#nirfPage .horizontal-line{
+   color: #000;
+   height: 1px;
+}
+/* end nirf page css */
+
+/* Heading with bg */
+#dynamic-page-section {
+    padding: 6rem 0 0 0;
+}
+
+.page-heading-with-bg .heading {
+    color: #fff;
+    font-family: Playfair Display;
+    font-size: 2rem;
+    font-weight: 800;
+    line-height: 46.66px;
+    letter-spacing: 2px;
+    margin: 0;
+    align-content: center;
+    height: 100%;
+}
+
+.page-heading-with-bg .page-title {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    margin: auto;
+}
+
+.page-heading-with-bg img{
+
+    border-radius: 1.2rem;
+} 
+/* Heading with bg */
+
+/* academic-facts */
+
+#academic-facts-section .heading {
+    font-family: Playfair Display;
+    font-size: 38px;
+    font-weight: 800;
+    line-height: 46.66px;
+    color: #023222;
+    margin: 0;
+    padding: 2rem 0;
+}
+
+#academic-facts-section .fact-list .heading {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: relative;
+    width: fit-content;
+}
+
+#academic-facts-section .fact-list .heading h5 {
+
+    font-size: 18px;
+    line-height: 25px;
+    font-weight: 800;
+    font-family: roboto;
+    color: #023222;
+    margin: 0;
+}
+
+#academic-facts-section .fact-list p {
+    font-size: 16px;
+    line-height: 25px;
+    font-weight: 400;
+    font-family: roboto;
+    color: #1E1E1E;
+    margin: 0;
+}
+
+@media (max-width:767px) {
+
+    #academic-facts-section .divider {
+        border: 1px solid #023222;
+        position: absolute;
+        width: 100% !important;
+        left: -75px;
+        bottom: 18px;
+    }
+}
+
+#academic-facts-section .divider {
+    border: 1px solid #023222;
+    position: absolute;
+    width: calc(100% + 100px);
+    left: -75px;
+    bottom: 18px;
+}
+
+#academic-facts-section .dot {
+    height: 10px;
+    width: 10px;
+    border-radius: 50%;
+    background: #023222;
+    position: absolute;
+    right: -9px;
+    top: -5px;
+}
+
+/* awards */
+
+.awards {
+    padding: 10rem 0px 26px 0px;
+}
+
+.awards .awards-heading {
+    background-repeat: no-repeat;
+    background:url("{{ asset('gallery/ellipse.svg') }}") #023222;
+    background-position: center;
+    background-size: cover;
+    width: 100%;
+    height: 75px;
+    border-radius: 21px;
+    box-shadow: 5px 9px 14.4px 0px #00000040;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 35px;
+    font-weight: 800;
+    color: #fff;
+}
+
+
+
+/* home page  */
+
+.about-section .about-img {
+    border-radius: 20px;
+    width: 829px;
+    height: 377px;
+    overflow: hidden;
+}
+
+.about-section .about-img img {
+    transition: 1.5s
+}
+
+.about-section .about-img img:hover {
+    transform: scale(1.2)
+}
+
+.about-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.about-heading {
+    width: fit-content;
+    position: relative;
+    margin: auto;
+    padding: 25px 0px;
+}
+.about-heading h2{
+    font-family: 'playflair display';
+    font-size: 37px;
+    font-weight: 700;
+    line-height: 46.66px;
+}
+.about-section p{
+    font-family: 'roboto';
+    font-size: 16px;
+    font-weight: 400;
+    line-height: 18.75px;
+}
+.about-section .know-more-btn{
+    background: #FEB800;
+    height: 48px;
+    width: 278px;
+    align-content: space-around;
+    border-radius: 7px;
+    margin-top: 20px;
+}
+.about-section .know-more-btn a{
+    font-family: 'Roboto';
+    font-size: 22.62px;
+    font-weight: 500;
+    line-height: 26.51px;
+    color: #1e1e1e;
+    text-decoration: none;
+    
+}
+.about-section .divider {
+    border: 1px solid #fff;
+    position: absolute;
+    width: calc(100% + 80px);
+    left: -40px;
+}
+
+.about-section .dot1 {
+    height: 10px;
+    width: 10px;
+    border-radius: 50%;
+    background: #fff;
+    position: absolute;
+    left: -9px;
+    top: -5px;
+}
+
+.about-section .dot2 {
+    height: 10px;
+    width: 10px;
+    border-radius: 50%;
+    background: #fff;
+    position: absolute;
+    right: -9px;
+    top: -5px;
+}
+
+
+.quotes-section .quotes-main {
+    max-width: 350px !important;
+    position: relative;
+    ;
+}
+
+.quotes-section .quotes-img {
+    margin-bottom: -148px;
+    display: flex;
+    justify-content: flex-end
+}
+
+.quotes-section .img-bg {
+
+    background: #023222;
+    height: 145px;
+    border-radius: 0px 0px 86px 0px;
+}
+
+.quotes-section .quotes-bg {
+    border: 2px solid #023222;
+    border-radius: 0px 0px 20px 20px;
+}
+
+.quotes-section .quote-content {
+
+    padding: 20px;
+    border: 2px solid #023222;
+    border-top: 0;
+    border-radius: 0px 0px 20px 20px;
+}
+
+.quotes-section .quote-content p {
+    font-family: 'roboto';
+    font-size: 16px;
+    font-weight: 400;
+}
+
+.quotes-section .bg-img {
+    background: linear-gradient(0deg, #023222 60%, transparent 30%);
+    border-radius: 0px 0px 86px 0px;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.quotes-section .bg-img::after {
+
+    content: '';
+    width: 2px;
+    height: 50%;
+    background: #023222;
+    position: absolute;
+    right: 0;
+    bottom: 25%;
+}
+
+.quotes-section .bg-img img {
+    width: 85%;
+    height: 270px;
+    object-fit: contain;
+}
+
+.affiliation-section {
+    background: #023222;
+}
+
+.affiliation-section .heading {
+    font-family: 'Playfair Display';
+    color: #fff;
+    font-size: 35px;
+    font-weight: 800;
+    line-height: 49px;
+
+}
+
+.affiliation-section .devider {
+    border-right: 1px solid #fff;
+
+}
+
+.affiliation-section .affiliation-img {
+    background: #fff;
+    padding: 12px;
+    border-radius: 16px;
+    width: 100px;
+    height: 100px;
+}
+
+.affiliation-img img {
+    width: -webkit-fill-available;
+    height: -webkit-fill-available;
+    object-fit: contain;
+}
+
+
+
+.notice-board {
+    background: #fff;
+    width: 514px;
+    height: 450px;
+    border-radius: 10px;
+}
+
+.notice-heading {
+    text-align: center;
+    margin: 20px;
+    border-bottom: 1px solid;
+}
+
+.notice-heading h2 {
+    color: #023222;
+    font-family: 'play-flair display';
+    font-weight: 800;
+    font-size: 30px;
+    line-height: 32px;
+
+}
+
+.notice-board-content {
+    overflow: hidden;
+    height: 350px;
+    padding: 20px;
+}
+
+.notice-card {
+    display: flex;
+    gap: 20px;
+    height: 85px;
+    display: flex;
+    align-items: center;
+    border: 1px solid #023222;
+    border-radius: 10px;
+    margin-bottom: 20px;
+}
+
+.notice-card .notice-date {
+    background: #FAA61A;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    padding: 15px;
+    width: 150px;
+    text-align: center;
+    border-radius: 10px;
+}
+
+.notice-card .notice-date p {
+
+    font-size: 22px;
+    font-weight: 800;
+    color: #023222;
+}
+
+.notice-card .notice-link p {
+
+    font-size: 20px;
+    font-weight: 400;
+    color: #023222;
+}
+
+.marquee {
+    top: 6em;
+    position: relative;
+    box-sizing: border-box;
+    animation: marquee 15s linear infinite;
+    overflow: hidden;
+}
+
+.marquee:hover {
+    animation-play-state: paused;
+}
+
+/* Make it move! */
+@keyframes marquee {
+    0% {
+        top: 8em
+    }
+
+    100% {
+        top: -11em
+    }
+}
+
+#partners-section .nav-tabs {
+    border: none;
+    justify-content: center;
+}
+
+
+.placement-card {
+
+    display: flex !important;
+    background: #D9D9D9;
+    border-radius: 20px;
+    width: fit-content !important;
+}
+
+.placed-at {
+    background: #fff;
+    display: flex;
+    gap: 40px;
+    align-items: center;
+    justify-content: space-around;
+    border-radius: 0px 13px 13px 0px;
+    padding: 5px;
+    height: 88px;
+    margin-right: 15px;
+}
+
+.placement-card p {
+    font-size: 16px;
+    font-weight: 400;
+    font-family: 'roboto';
+    line-height: 20px;
+    margin: 0;
+}
+
+.placement-student {
+    padding: 20px 15px 15px 15px;
+
+}
+
+.placement-student p:last-of-type {
+    border-bottom: 1px solid;
+    padding-bottom: 10px;
+}
+
+.placement-student-img img {
+    border: 2px solid #023222;
+    border-radius: 20px;
+    width: 227px;
+    height: 310px;
+    object-fit: cover;
+}
+
+.placement-student-img {
+    padding: 10px 0px 10px 10px;
+}
+
+.placement-student h2 {
+    color: #023222;
+    font-family: 'playflair display';
+    font-weight: 900;
+    font-size: 25px;
+    line-height: 32px;
+}
+
+.package-offer {
+    padding-top: 20px;
+    text-align: center;
+}
+
+.package-offer .lpa {
+    background: #023222;
+    text-align: center;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 10px;
+}
+
+.package-offer .lpa p {
+    margin: 0;
+    font-size: 30px;
+    font-weight: 800;
+    line-height: 40px;
+    color: #FEB800;
+}
+
+#placement-highlights-section .slick-slide:not(.slick-current) {
+    opacity: 0.5;
+
+}
+.facility-section .theme-container{
+    border-top: 1px solid;
+}
+.facility-main {
+    text-align: center;
+    display: flex !important;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+
+.facility-img {
+    border: 2px solid #966F09;
+    border-radius: 50%;
+    width: fit-content;
+    background: #023222;
+}
+
+.facility-img img {
+
+    border: 3px solid #fff;
+    border-radius: 50%;
+    width: 100px;
+    height: 100px;
+    padding: 10px;
+    object-fit: scale-down;
+}
+
+#coursed-offered-section li {
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding-bottom: 8px;
+}
+
+#coursed-offered-section .course-list {
+    display: flex;
+    gap: 100px;
+}
+
+#coursed-offered-section .more-campus-news-wrapper {
+    width: 292px;
+    height: 48px;
+    background-color: #023222;
+    align-content: center;
+    margin: 1rem 0;
+    border-radius: 10px;
+    text-align: center;
+}
+
+#coursed-offered-section .more-campus-news-wrapper a {
+    font-family: Roboto;
+    font-size: 25px;
+    font-weight: 600;
+    line-height: 34px;
+    text-align: center;
+    color: #fff;
+    text-decoration: none;
+}
+
+#coursed-offered-section .heading {
+    font-family: 'playflair display';
+    font-weight: 800;
+    font-size: 35px;
+    color: #023222;
+}
+
+#coursed-offered-section p {
+    font-size: 20px;
+    font-weight: 400;
+}
+
+#coursed-offered-section li {
+    font-size: 18px;
+    font-weight: 400;
+    line-height: 24px;
+}
+
+#coursed-offered-section .faculty-list {
+    background: #D9D9D9;
+    height: 600px;
+    border-radius: 20px;
+    display: flex;
+    flex-direction:column;
+    padding: 2rem;
+    gap: 20px;
+    overflow: scroll;
+}
+#coursed-offered-section .faculty-list::-webkit-scrollbar {
+    display: none;
+}
+#coursed-offered-section .small-list {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    width: 50%;
+    height: 100%;
+
+}
+#coursed-offered-section .big-list{
+    width: 50%;
+}
+#coursed-offered-section .big-list img{
+   border-radius: 20px;
+   width: 100%;
+   height:597px;
+   object-fit: cover;
+}
+#coursed-offered-section .faculty-list-wrapper{
+    display: flex;
+    gap: 20px;
+}
+.quotes-section .heading {
+    font-family: 'Playfair Display';
+    color: #023222;
+    font-size: 35px;
+    font-weight: 800;
+    line-height: 49px;
+    text-align: center;
+
+}

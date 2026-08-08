@@ -1,0 +1,41 @@
+<?php
+
+namespace App\Models\Admin\Site\Page;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class Page extends Model
+{
+    use HasFactory;
+
+    protected $table            =   'pages';
+
+    protected $appends          =   [
+        'status_label',
+        'status_view',
+    ];
+
+    protected $fillable         =   [
+        'title',
+        'slug',
+        'content',
+        'status',
+    ];
+
+    public function scopeActive($query)
+    {
+        $query->whereStatus(1);
+    }
+
+    public function getStatusLabelAttribute()
+    {
+        return $this->status ? 'Active' : 'Deactive';
+    }
+
+    public function getStatusViewAttribute()
+    {
+        return $this->status ? '<span class="btn btn-success btn-sm">Active</span>' : '<span class="btn btn-danger btn-sm">Deactive</div>';
+    }
+
+}

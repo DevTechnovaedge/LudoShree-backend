@@ -1,0 +1,5 @@
+# Laravel root: redirect to public (do NOT put VirtualHost/Alias here - use /etc/apache2/sites-available/)
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>

@@ -1,0 +1,118 @@
+.theme-container {
+    max-width: calc(100vw - 100px) !important;
+    margin: auto;
+}
+
+.header-menus-start {
+    margin: 0;
+}
+
+.find-courses-wrapper {
+    margin-top: 1rem;
+}
+
+
+#navbarSupportedContent ul.navbar-nav li.nav-item .nav-link{ font-size: 12px; }
+
+.header-menus li.nav-item.active {
+    padding: 5px;
+}
+
+.site-content {
+    width: 100%;
+    padding: 0 1rem;
+}
+
+
+header #top-header {
+    height: 100%;
+}
+
+.box-row { 
+    width: 100%;
+    padding: 1rem 1.5rem;
+    padding-bottom: 0;
+ }
+.box-row .box {
+    width: 50% !important;
+    height: 50px !important;
+}
+
+header #top-header .box-one{ margin: 0;}
+.header-menus li.nav-item.logo-item {
+    width: 210px;
+}
+
+
+.student-corner-info .student-corner-image-box{ width: 100%;}
+
+
+#fee-payment-page .new-student-content{
+    padding-top: 2rem !important;
+}
+
+#admission-process-page .bg-top-header-banner{
+    width: 100%;
+}
+
+#admission-process-page .top-header{
+    height: auto;
+}
+
+#admission-process-page .floating-content {
+    padding: 9rem 2rem 6rem 2rem;
+}
+.jvwu-col-xl-2{
+    width: 20% !important;
+}
+
+.header-menus-start {
+    margin: 0 1rem;
+}
+
+footer .footer-top .box-col{
+    width: 100% !important;
+}
+
+footer .footer-top .box{
+    margin-top: 1rem  !important;
+    width: 100% !important;
+}
+
+
+footer .footer-main .footer-first-column, footer .footer-main .footer-second-column, footer .footer-main .footer-third-column, footer .footer-main .footer-fourth-column{
+    width: 25%  !important;
+}
+footer .footer-main .footer-social-links li {
+    padding: 0  !important;
+}
+
+.person-details-col {
+    padding: 2rem 3rem !important;
+}
+section#organization-chart-section {
+    padding: 6rem 0;
+}
+
+
+#skills-development-program-page .row.collaboration-centers{
+    margin: 0 !important;
+}
+
+#skills-development-program-page .row.collaboration-centers > .collaboration-center {
+    border-top: 0;
+    padding: 0;
+    border: 0 !important;
+    border-bottom: 1px solid #8080808c !important;
+    padding: 1rem 0;
+}
+
+#skills-development-program-page .collaboration-center .center-address p, 
+#skills-development-program-page .collaboration-center .center-contact-number p{
+    margin: 0;
+}
+
+#skills-development-program-page .collaboration-centers{
+    padding-bottom: 0;
+}
+ 

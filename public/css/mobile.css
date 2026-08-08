@@ -1,0 +1,1173 @@
+.theme-container {
+    max-width: calc(100vw - 10px) !important;
+    margin: auto;
+}
+
+header #top-header .box-col {
+    display: none !important;
+}
+
+header .header-logo {
+    align-content: space-evenly;
+}
+
+header .site-content .navbar-brand {
+    display: flex;
+}
+
+header .header-logo .m-logo {
+    display: block;
+    margin: 0;
+    background: #fff;
+    border-radius: 10px;
+    padding: 10px;
+    width: 15vw;
+}
+
+header .header-content {
+    padding: 0 0.5rem;
+}
+
+header .header-content .site-name,
+header .header-content .established-by,
+header .header-content .site-info {
+    text-align: left !important;
+    word-spacing: 0 !important;
+    letter-spacing: 0 !important;
+    margin: 0;
+    line-height: normal !important;
+}
+
+.site-name {
+    font-size: 1rem !important;
+}
+
+header .header-content .established-by {
+    margin: 6px 0;
+}
+
+.established-by,
+.site-info {
+    font-size: 0.875rem !important;
+}
+
+.box-row {
+    margin-top: 1rem;
+}
+/* End Header */
+
+.student-corner .heading {
+    font-size: 18px;
+}
+
+.student-corner .recruiter-content p {
+    margin-bottom: 0;
+}
+
+.student-corner-info,
+.student-corner {
+    padding: 2rem !important;
+}
+.student-corner-info .container-fluid-padding,
+.student-corner .container-fluid-padding {
+    padding: 0px 0px;
+}
+
+.student-corner-info .student-corner-image-box {
+    width: 100%;
+}
+
+.page-heading-section {
+    padding: 2rem !important;
+}
+.listed-below-title {
+    font-size: 22px !important;
+    line-height: 30px !important;
+}
+.instructor-section .instructor-image img {
+    height: 100%;
+    width: 100% !important;
+}
+.placement-index {
+    /* padding: 4rem 2rem !important; */
+    padding: 4rem 1rem !important;
+}
+.instructor-section .p-info {
+    font-size: 18px !important;
+}
+
+.naac-container .heading {
+    font-size: 30px !important;
+    margin: 2rem 0 !important;
+}
+
+.tab-link {
+    border-right: 1px solid #fff;
+}
+
+div#v-pills-tab {
+    width: 100%;
+    flex-direction: row !important;
+    flex-wrap: nowrap;
+    overflow: auto;
+}
+
+.tabs-wrapper {
+    flex-direction: column;
+}
+
+.custom-select {
+    margin-bottom: 1rem;
+}
+
+section#additional-top-section {
+    padding-top: 1rem !important;
+}
+
+.find-courses-wrapper {
+    margin-top: 1rem;
+}
+
+.course-item-name {
+    font-size: 14px !important;
+}
+
+.know-more-btn {
+    float: left !important;
+}
+.course-details {
+    margin-top: 1rem;
+}
+.course-details-table .table-heading,
+.course-details-table .table td {
+    font-size: 18px !important;
+}
+
+.page-heading-section .heading {
+    font-size: 2rem !important;
+    margin: 0 !important;
+}
+
+.page-heading-section .content{
+    font-size: 1rem  !important;
+    margin-top: 1rem;
+}
+
+#admission-process-page .top-header .top-header-title {
+    font-size: 16px !important;
+}
+#admission-process-page .top-header .top-header-sub-title {
+    padding: 1rem !important;
+    font-size: 14px !important;
+    margin: 0 !important;
+}
+#admission-process-page .top-header {
+    height: fit-content !important;
+    top: -7rem !important;
+}
+#admission-process-page section.page-heading-section {
+    padding-top: 2rem !important;
+    padding-bottom: 8rem !important;
+}
+
+#admission-process-page .floating-content {
+    padding: 2rem !important;
+    padding-top: 10rem !important;
+}
+
+#admission-process-page .floating-content .title {
+    font-size: 18px !important;
+}
+#admission-process-page .section-with-floating-header .sub-title {
+    font-size: 16px !important;
+}
+#admission-process-page ul.sub-title-points li {
+    font-size: 14px !important;
+    line-height: 24px !important;
+}
+#admission-process-page .second-content-section {
+    margin-top: 0rem !important;
+}
+#admission-process-page .floating-content {
+    background-image: none !important;
+}
+
+#loans-section {
+    padding: 2rem 0 !important;
+}
+.custom-download-btn .download-icon-with-ellipse .label {
+    font-size: 14px !important;
+}
+#loan-and-scholarship-page #banks-providing-loans .heading {
+    font-size: 18px !important;
+    line-height: 28px !important;
+}
+#loan-and-scholarship-page .loan-departments .card-header {
+    padding: 2rem !important;
+}
+#loan-and-scholarship-page .loan-departments .card-header h6 {
+    font-size: 14px !important;
+}
+#loan-and-scholarship-page .loan-departments .card-header h5 {
+    font-size: 14px !important;
+    line-height: 25px !important;
+    margin: 0 !important;
+}
+
+#rule-and-regulation-page .page-heading-section {
+    padding: 1rem 0 !important;
+}
+
+#rule-and-regulations-section ul.points {
+    padding: 0 !important;
+}
+#rule-and-regulations-section ul.points li {
+    margin: 0 !important;
+}
+
+#course-outcomes-page .faculty-table td.department-heading {
+    font-size: 14px !important;
+}
+
+#course-outcomes-page .faculty-table td.course-heading,
+#course-outcomes-page .faculty-table td.download-pdf {
+    font-size: 14px !important;
+}
+
+#course-outcomes-page .faculty-table td:first-of-type {
+    width: 60% !important;
+}
+
+#fee-payment-page .sub-heading {
+    font-size: 16px;
+    line-height: 1.5rem;
+}
+
+#fee-payment-page .enrolled-student-content {
+    padding: 0;
+    padding-top: 3rem;
+}
+
+#fee-payment-page .bank-details-wrapper .title {
+    line-height: 1.8rem !important;
+}
+
+#fee-payment-page .enrolled-students-wrapper {
+    padding: 2rem 0;
+}
+
+#fee-payment-page .new-student-wrapper {
+    text-align: left !important;
+}
+
+.order-m-1 {
+    order: 1 !important;
+}
+
+.order-m-2 {
+    order: 2 !important;
+}
+
+#fee-payment-page .new-students-wrapper {
+    padding-bottom: 1rem !important;
+}
+
+#fee-payment-page .new-student-content {
+    padding-top: 2rem !important;
+}
+
+#organization-chart-section .section-divider {
+    margin-bottom: 1rem;
+    margin-top: 0;
+}
+
+#organization-chart-section .heading {
+    font-size: 16px !important;
+    margin: 0.5rem 0;
+}
+section#organization-chart-section {
+    padding: 1rem 0;
+}
+
+div#adminstration-page {
+    padding: 2rem 0;
+}
+
+#adminstration-page .administration-owner .member-name h2 {
+    font-size: 20px;
+    text-align: center;
+}
+
+#adminstration-page .administration-owner .member-box {
+    height: fit-content;
+    margin: 1rem 0;
+}
+
+#adminstration-page .administration-owner .member-designation p {
+    text-align: center;
+}
+
+#adminstration-page section#administration-section {
+    padding-bottom: 2rem;
+}
+
+#adminstration-page .members {
+    padding: 2rem 0;
+}
+
+#adminstration-page .heading-container h2.heading {
+    font-size: 27px;
+}
+
+.e-note-faculty-heading {
+    font-size: 18px !important;
+    line-height: 24px !important;
+    padding: 0.8rem !important;
+}
+
+.placement-index .text-container {
+    font-size: 14px !important;
+    padding: 3rem 1rem 2rem 1rem !important;
+}
+
+.instructor-section .cell-detail {
+    padding: 1rem 0;
+}
+
+.placement-recruiters .company-box {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 1.4rem 0.8rem !important;
+    padding: 1.5rem 1rem !important;
+    overflow: hidden;
+    border-radius: 1rem !important;
+    justify-content: space-evenly !important;
+}
+
+.placement-content .text {
+    font-size: 14px;
+}
+
+.placement-content .heading {
+    font-size: 23px;
+}
+
+section.placement-section {
+    padding: 2rem 0;
+}
+
+#regular-admission-page .divider {
+    margin: 2rem 0;
+}
+
+#regular-admission-page .course-type-name {
+    font-size: 20px;
+}
+
+#regular-admission-page .course-name {
+    font-size: 16px;
+}
+
+#regular-admission-page .course-list {
+    padding-top: 0;
+}
+
+#regular-admission-page span#secure-icon {
+    top: 13px;
+}
+
+#regular-admission-page .know-more-btn {
+    padding: 0.5rem;
+    width: 100%;
+}
+
+#regular-admission-page .table-heading {
+    font-size: 14px !important;
+}
+
+#regular-admission-page .table td {
+    font-size: 14px !important;
+}
+
+#regular-admission-page .fee-arrangement-wrapper span.label,
+#regular-admission-page .find-courses-wrapper span.label {
+    font-size: 14px !important;
+}
+
+
+.listed-below-title {
+    font-size: 16px !important;
+}
+
+.alumni-item .card .card-title {
+    font-size: 18px !important;
+}
+
+.alumni-item .card .card-content {
+    font-size: 14px !important;
+}
+.alumni-item .card .card-body {
+    padding: 1rem 0.5rem !important;
+}
+
+#admission-process-page .prominent-title {
+    font-size: 18px;
+}
+
+#admission-process-page .prominent-sub-title {
+    font-size: 16px;
+    font-weight: 300;
+}
+
+.header-menus {
+    height: auto;
+}
+
+#loan-and-scholarship-page .content-section-with-image .content {
+    font-size: 16px;
+}
+
+#loan-and-scholarship-page .content-section-with-image .points li {
+    font-size: 14px;
+    line-height: 25px;
+}
+
+#loan-and-scholarship-page ul.points {
+    margin: 1.5rem 0 !important;
+    padding: 0 1rem !important;
+}
+
+#loan-and-scholarship-page .loan-points-section .title {
+    font-size: 17px;
+    line-height: 25px;
+    margin-top: 2rem;
+}
+
+#loan-and-scholarship-page section.loan-points-section .theme-container {
+    padding: 0;
+}
+
+#loan-and-scholarship-page #loan-department-table th,
+#loan-and-scholarship-page #loan-department-table td {
+    font-size: 16px;
+    padding: 0.5rem !important;
+}
+
+#loan-and-scholarship-page #loan-department-table th {
+    align-content: center;
+}
+#loan-and-scholarship-page .content-section-with-image {
+    width: 100%;
+}
+
+#sdc-heading-section .heading,
+#contact-us-section .heading {
+    font-size: 18px !important;
+    line-height: 25px !important;
+}
+#sdc-heading-section,
+#voluntary-certification-section {
+    padding: 1rem 0 !important;
+}
+
+#voluntary-certification-section .title {
+    font-size: 18px !important;
+    line-height: 25px !important;
+    margin: 0;
+}
+
+.small-heading-with-bg span {
+    font-size: 14px !important;
+}
+
+#skills-development-program-page #about-section {
+    padding: 12rem 0 0 0;
+}
+
+#skills-development-program-page .about-container {
+    padding: 3rem 0 0 0;
+}
+
+#skills-development-program-page .normal-heading-with-bg span {
+    font-size: 14px;
+    line-height: 25px;
+}
+
+#skills-development-program-page .about-content p,
+#skills-development-program-page .about-content .points li {
+    font-size: 13px;
+    line-height: 25px;
+}
+
+#skills-development-program-page .skill-programs-container {
+    padding: 2rem 0;
+}
+
+#skills-development-program-page button.accordion-button {
+    font-size: 16px;
+}
+
+#skills-development-program-page #collaboration-centre-section .title {
+    font-size: 25px;
+}
+
+#skills-development-program-page #collaboration-centre-section .sub-title {
+    font-size: 16px;
+    line-height: 25px;
+}
+
+#skills-development-program-page #collaboration-centre-section {
+    padding-top: 2rem;
+}
+
+#skills-development-program-page .collaboration-centers {
+    margin-top: 0;
+}
+
+.collaboration-center {
+    padding: 0.5rem !important;
+}
+
+#skills-development-program-page .collaboration-center .center-name {
+    font-size: 16px;
+    line-height: 25px;
+    margin: 0;
+}
+
+#skills-development-program-page .collaboration-center .person-name {
+    font-size: 16px;
+    line-height: 25px;
+    margin: 0;
+}
+
+#skills-development-program-page .collaboration-center .center-address p,
+#skills-development-program-page
+    .collaboration-center
+    .center-contact-number
+    p {
+    font-size: 14px;
+    line-height: 25px;
+    margin: 0;
+}
+
+#skills-development-program-page
+    .row.collaboration-centers
+    > .collaboration-center {
+    border: 0 !important;
+    border-bottom: 1px solid #c5c0c0 !important;
+}
+
+#skills-development-program-page .collaboration-centers {
+    padding-bottom: 0 !important;
+}
+
+#skills-development-program-page section#contact-us-section {
+    padding: 2rem 0;
+}
+
+#skills-development-program-page #contact-us-section .title {
+    font-size: 18px;
+    line-height: 25px;
+}
+
+#skills-development-program-page #contact-us-section .sub-title {
+    font-size: 14px;
+    line-height: 25px;
+    margin: 1rem 0;
+}
+
+#skills-development-program-page #success-stories-section .title {
+    font-size: 18px;
+    line-height: 25px;
+}
+
+#skills-development-program-page #success-stories-section .accordion-button {
+    font-size: 16px;
+    line-height: 25px;
+}
+
+#skills-development-program-page section#programme-list {
+    padding: 0;
+}
+
+#skills-development-program-page #programme-list .card-header h5 {
+    font-size: 18px;
+    line-height: 25px;
+    padding: 0 1rem;
+}
+
+#skills-development-program-page #programme-list .card-header {
+    padding: 2rem 0 0 0;
+}
+
+#skills-development-program-page #programme-list #progamme-table th,
+#skills-development-program-page #programme-list #progamme-table td {
+    font-size: 14px;
+    line-height: 25px;
+}
+
+#skills-development-program-page .charge-container .points li,
+#skills-development-program-page
+    .prominent-academic-features-container
+    .points
+    li {
+    font-size: 14px;
+    line-height: 25px;
+}
+
+#skills-development-program-page .prominent-academic-features-container h4 {
+    font-size: 18px;
+    line-height: 25px;
+}
+
+#skills-development-program-page .prominent-academic-features-container {
+    padding-top: 0rem;
+}
+
+.student-corner .recruiter-content p {
+    width: auto;
+    text-align: center;
+    font-size: 14px;
+}
+
+.student-corner-info .info-content h2 {
+    font-size: 18px;
+}
+
+.student-corner-info .info-content p,
+.student-corner-info .info-content a {
+    font-size: 14px;
+}
+
+#recognitions-section .establishment-heading {
+    font-size: 14px;
+}
+
+#recognitions-section .establishment-name {
+    font-size: 14px;
+}
+
+#naac-section .heading {
+    font-size: 18px;
+    line-height: 25px;
+    margin: 0;
+    padding: 2rem 0;
+}
+
+#naac-section .tab-link {
+    font-size: 14px;
+}
+
+#naac-section .tab-heading {
+    font-size: 18px;
+}
+
+#naac-section .tab-description p {
+    font-size: 14px;
+}
+
+#rule-and-regulations-section ul.points li {
+    font-size: 14px !important;
+    line-height: 25px !important;
+}
+
+#course-outcomes-page .page-heading-section {
+    padding: 1rem 0;
+}
+
+#course-outcomes-page #faculty-list-section .faculty-item .faculty-name {
+    font-size: 18px;
+    line-height: 25px;
+    margin: 1rem 0;
+}
+
+#fee-payment-page .section-title {
+    font-size: 18px;
+}
+#fee-payment-page .point {
+    font-size: 14px;
+}
+
+#fee-payment-page .new-student-content .note,
+#fee-payment-page .enrolled-students-wrapper .note {
+    font-size: 14px;
+    margin: 1rem 0;
+}
+
+#fee-payment-page .online-payment-link {
+    font-size: 14px;
+}
+
+#fee-payment-page .online-payment-terms {
+    font-size: 14px;
+    line-height: 25px;
+}
+
+#fee-payment-page .bank-details-wrapper .title {
+    font-size: 18px;
+    line-height: 25px;
+}
+
+#fee-payment-page .bank-details-wrapper {
+    padding: 2rem 0;
+}
+
+#fee-payment-page .axis-bank-btn-link {
+    font-size: 14px;
+    line-height: 25px;
+    margin: 1rem auto;
+}
+
+#fee-payment-page .bank-details-wrapper .note {
+    font-size: 14px;
+}
+
+.gallery-section .gallery-card-image img,
+.gallery-section .gallery-card-box,
+.gallery-section .gallery-card-textbox {
+    height: auto !important;
+}
+
+.gallery-section .gallery-card-textbox p {
+    font-size: 14px !important;
+}
+
+.gallery-section .gallery-card-textbox .video-title {
+    font-size: 14px;
+    line-height: 17px;
+    padding: 1rem 0;
+}
+
+.gallery-banner .banner-content {
+    font-size: 24px !important;
+}
+
+.gallery-section .gallery-card-box-news {
+    height: auto;
+}
+
+.gallery-section .gallery-card-news-textbox div {
+    font-size: 14px;
+}
+
+#founder-section #person-details-container h2.heading-with-dot-underline {
+    font-size: 22px;
+}
+
+/*  */
+footer .footer-main .footer-heading {
+    font-size: 1rem;
+}
+
+footer .footer-top .box .heading {
+    font-size: 1rem;
+}
+
+footer .footer-main .footer-content p,
+footer .footer-main ul.footer-content li {
+    font-size: 0.875rem;
+}
+
+.header-logo {
+    display: none;
+}
+
+header .header-content {
+    padding: 0;
+}
+
+.nav-header-logo{
+    display: block;
+}
+
+.nav-header-logo {
+    border: 1px solid #023222;
+    padding: 0.5rem;
+    border-radius: 10px;
+    margin-left: 1rem;
+}
+
+img.nav-m-logo {
+    width: 50px;
+}
+
+.header-menus-start {
+    justify-content: space-between !important;
+}
+
+section#recognitions-section {
+    margin-top: 3rem;
+}
+
+
+/* add by uday */
+
+.divider-with-two-side-dots{
+    margin-top: 10px;
+    width: 60%;
+}
+
+.custom-select+.flex-center hr{
+  display: none;
+}
+
+
+/* header in mobile */
+.header-logo{
+    display: block;
+}
+.vertical {
+    border-left: 2px solid #d3d3d3ab;
+    height: 86px;
+  }
+  header #top-header .site-content a{
+    display: flex;
+    gap: 0px 10px;
+    flex-wrap: nowrap;
+    align-items: center;
+  }
+
+
+  header .header-logo .m-logo{
+        padding: 3px;
+        width: 58.54px;
+  }
+  header .header-content .site-name{
+    font-size: 16.44px !important;
+    line-height: 18px !important;
+  }
+  header #top-header .established-by{
+    font-size: 15px !important;
+    line-height: 17px !important;
+    margin: 3px 0;
+  }
+  header #top-header .site-info{
+    font-size: 10.74px !important;
+    line-height: 15px !important;
+  }
+  
+
+
+  main{
+    position: relative;
+  }
+  main .mobile-side-button {
+    display: block;
+    text-decoration: none;
+    background-color: #D9D9D9;
+    color: #023222;
+    rotate: 270deg;
+    position: fixed;
+    /* right: -30%; */
+    right: calc(0% - 145px);
+    border-radius: 35px 35px 0px 0px;
+    padding: 10px 29px 22px;
+    top: 50%;
+    z-index: 9;
+}
+  main .mobile-side-button a{
+    text-decoration: none;
+    color: var(--primary);
+    font-family: Roboto;
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 25.48px;
+    text-align: center;
+    padding: 0px 7px;
+    padding-bottom: 20px;
+
+  }
+.nav-header-logo{
+    border: none;
+}
+.nav-header-logo img{
+    display: none;
+}
+
+
+main .mobile-bottom-button {
+    display: block;
+    text-decoration: none;
+    background-color: #023222;
+    color: #fff;
+    position: fixed;
+    padding: 15px 29px 15px;
+    bottom: 0%;
+    z-index: 5;
+    width: 100%;
+    text-align: center;
+}
+  main .mobile-bottom-button a{
+    text-decoration: none;
+    color: #fff;
+    font-family: Roboto;
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 25.48px;
+    text-align: center;
+    padding: 0px 7px;
+    padding-bottom: 20px;
+  }
+
+/* footer */
+footer .footer-main .footer-heading{
+    font-size: 1.4rem;
+}
+footer .footer-main {
+    padding: 0px !important;
+}
+footer .footer-first-column{
+    padding-top: 17px;
+}
+footer .footer-second-column, footer .footer-third-column{
+    width: 50% !important;
+}
+.footer-content .text-center{
+    text-align: left !important;
+    padding: 0px 8px;
+}
+footer .social-link-label{
+    margin-bottom: 0;
+}
+footer .footer-main .footer-social-links li {
+    padding: 0 6px;
+}
+footer .footer-main .social-links{
+    width: 57% !important;
+    
+}
+footer .footer-fourth-column {
+    padding-bottom: 40px;
+}
+
+footer .footer-mobile{
+    display: none !important;
+}
+
+footer .footer-top .logo-col {
+    width: 25%;
+    border-radius: 0px 5px 5px 0px;
+    margin: 0;
+}
+footer .footer-top .mobile-content-col{
+    width: 70% !important;
+}
+
+footer .footer-site-content .site-name{
+    font-size: 16.44px !important;
+    line-height: 18px !important;
+}
+footer .footer-site-content .established-by{
+    font-size: 15px !important;
+    line-height: 17px !important;
+    margin: 3px 0;
+}
+footer .footer-site-content .site-info{
+    font-size: 10.74px !important;
+    line-height: 15px !important;
+    margin-bottom: 0;
+}
+footer .footer-top .footer-top-row {
+    padding: 16px 0;
+}
+
+footer .footer-top-row .vertical{
+    display: block !important;
+    width: 0% !important;
+    padding: 0;
+    margin-left: 12px;
+}
+footer .footer-content{
+    justify-content: space-between;
+}
+/* footer end */
+
+/*  */
+/* rules regulation css */
+#exam-rules-regulation table.marks_rules_table td {
+    text-align: left; 
+    
+    padding: 0px 12px !important;
+    }
+
+#exam-rules-regulation table.category_rules-table tr th:nth-child(1) {
+    text-align: center;
+    padding:0px 20px !important;
+    }
+#exam-rules-regulation .category_rules-table th:nth-child(2) {
+    text-align: left;
+    padding: 0px 12px !important;
+     }
+#exam-rules-regulation table.category_rules-table td  {
+    padding-left: 12px !important;
+    } 
+/* end rules regulation css */
+
+/* authorities page css */
+
+   
+    #authoritiesPage .authorities-sub-headingOuter-div{
+        background-size:cover;
+        height: 100%;
+    }
+    #authoritiesPage .authorities-sub-heading{
+        font-size: 25px !important;
+    }
+    #authoritiesPage .authorities-table th {
+        vertical-align: middle;
+        font-size:18px;
+        padding: 10px 23px;
+        }
+
+        #authoritiesPage .authorities-table td {
+        padding: 10px 20px;
+
+        }
+
+    
+/* end authorities */
+
+
+/* Dynamic Pages */
+#dynamic-page-section {
+    padding: 2rem 0 !important;
+}
+.page-heading-with-bg img {
+    height: 3rem;
+}
+.page-heading-with-bg .heading {
+    font-size: 1.2rem !important;
+}
+/* End Dynamic Pages */
+
+/* Placement_notification css */
+#placement_Notification .placementnews_heading{
+    font-size: 25px !important;
+    padding:26px 0px 26px 0px !important; 
+}
+/* End Placement_notification css */
+
+
+
+ .section-facts {
+    height: 100%;
+    clip-path: unset !important;
+}
+#home-about-section{
+    margin-top: 0 !important;
+}
+#quotes-section .owl-prev {
+    left: 0px;
+}
+
+#quotes-section .owl-next {
+    right: 0px;
+}
+.affiliation-section .devider {
+    border-right: none;
+
+}
+#placement-highlights-section .placement-content {
+    border-right: none;
+}
+#placement-highlights-section .placement-card{
+    display: inline-block !important;
+    width: 100% !important;
+}
+#placement-highlights-section .placement-student-img{
+    padding: 10px;
+}
+#placement-highlights-section .placement-student-img img{
+  width: 100%;
+}
+
+ul.sub-dropdown-menu {
+    position: relative !important;
+    top: 0 !important;
+    left: 0 !important;
+}
+
+ul.dropdown-menu {
+    padding: 1rem !important;
+}
+
+.dropdown-menu > li{
+    display: block;
+    width: 100%;
+    clear: both;
+    font-weight: 400;
+    color: var(--bs-dropdown-link-color);
+    text-align: inherit;
+    text-decoration: none;
+    white-space: nowrap;
+    background-color: transparent;
+    padding:  0.5rem;
+}
+
+li.nav-item.dropdown:nth-last-child(-n+2) ul.sub-dropdown-menu {
+    right: unset !important;
+}
+
+.home-slider-section .carousel-item img{
+    height: 225px;
+    object-fit: cover;
+}
+.fact-container {
+    width: 95%;
+    padding: 50px 0;
+}
+.notice-card .notice-link p{
+    font-size: 15px;
+}
+.notice-card .notice-date p{
+    font-size: 18px;
+}
+#coursed-offered-section .course-list{
+    gap:15px;
+}
+#coursed-offered-section .content-details{
+    padding: 15px;
+}
+#coursed-offered-section .faculty-list-wrapper{
+    display: flex;
+    flex-direction: column;
+}
+#coursed-offered-section .small-list{
+    width: 100%;
+}
+#faculty-of-jvwu-section .overlay{
+    width: 100%;
+}
+#faculty-of-jvwu-section .faculty-item{
+    border-radius: 0.5rem;
+}
+#coursed-offered-section .big-list{
+    width: 100%;
+}
+#partners-section .tab-col{
+    padding: 2rem 3rem;
+}
+#partners-section .nav-tabs{
+    gap:20px;
+}
+.quotes-section .heading{
+    font-size: 30px;
+}
+.affiliation-section .heading{
+    font-size: 30px;
+}
+#placement-highlights-section .campus-item{
+    padding-top: 20px;
+}
+#placement-highlights-section .campus-item-wrapper{
+    display: block;
+    align-items: center;
+    gap:20px;
+}
+#departments-lists .course-item-name {
+    font-size: 14px;
+}
+#departments-lists .know-more-btn {
+    padding: 0.5rem;
+    width: 100%;
+}

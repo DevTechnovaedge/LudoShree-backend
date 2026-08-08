@@ -1,0 +1,10 @@
+.theme-container {
+    max-width: calc(100vw - 100px) !important;
+    margin: auto;
+}
+
+.jvwu-col-xl-2{
+    width: 20% !important;
+}
+
+
