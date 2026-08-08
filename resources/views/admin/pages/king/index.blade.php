@@ -28,8 +28,22 @@
                             <span class="badge badge-warning">Paused by admin</span>
                         @elseif($status['alive'])
                             <span class="badge badge-success">Online (client id: {{ $status['client_id'] ?: '?' }})</span>
+                        @elseif(!$status['credentials_ok'])
+                            <span class="badge badge-danger">API keys missing</span>
+                            <div class="small text-danger mt-1">Set KING_WS_API_KEY &amp; KING_WS_API_SECRET in .env, then run <code>php artisan config:cache</code></div>
+                        @elseif($status['last_error'])
+                            <span class="badge badge-danger">Daemon error</span>
+                            <div class="small text-danger mt-1">{{ $status['last_error'] }}</div>
                         @else
-                            <span class="badge badge-danger">Daemon offline - check supervisor (king:listen)</span>
+                            <span class="badge badge-danger">Daemon offline</span>
+                            <div class="small text-muted mt-1">
+                                Run on server once:<br>
+                                <code>sudo bash /var/www/html/ludo-shree/scripts/setup-king-supervisor.sh</code><br>
+                                Then check: <code>supervisorctl status king-listen</code>
+                            </div>
+                        @endif
+                        @if($status['alive_at'])
+                            <div class="small text-muted mt-1">Last heartbeat: {{ date('Y-m-d H:i:s', $status['alive_at']) }}</div>
                         @endif
                     </div>
                 </div>

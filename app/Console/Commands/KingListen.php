@@ -55,16 +55,21 @@ class KingListen extends Command
         $this->sync = $sync;
 
         if (! config('king.enabled')) {
+            $this->rememberDaemonError('KING_WS_ENABLED=false in config. Set KING_WS_ENABLED=true in .env then php artisan config:cache');
             $this->error('King integration is disabled (KING_WS_ENABLED=false).');
 
             return self::FAILURE;
         }
 
         if (trim((string) config('king.api_key')) === '' || trim((string) config('king.api_secret')) === '') {
+            $this->rememberDaemonError('KING_WS_API_KEY / KING_WS_API_SECRET missing. Set them in .env then run: php artisan config:cache');
             $this->error('KING_WS_API_KEY / KING_WS_API_SECRET are not configured.');
 
             return self::FAILURE;
         }
+
+        $this->touchAlive();
+        $this->clearDaemonError();
 
         $loop = Loop::get();
 
@@ -531,6 +536,22 @@ class KingListen extends Command
     {
         try {
             Cache::put('king:alive_at', time(), 120);
+        } catch (\Throwable $e) {
+        }
+    }
+
+    private function rememberDaemonError(string $message): void
+    {
+        try {
+            Cache::put('king:daemon_last_error', $message, 3600);
+        } catch (\Throwable $e) {
+        }
+    }
+
+    private function clearDaemonError(): void
+    {
+        try {
+            Cache::forget('king:daemon_last_error');
         } catch (\Throwable $e) {
         }
     }

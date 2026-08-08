@@ -20,6 +20,10 @@ if ! command -v supervisorctl >/dev/null 2>&1; then
   exit 1
 fi
 
+touch /var/log/king-listen.log 2>/dev/null || true
+chown www-data:www-data /var/log/king-listen.log 2>/dev/null || true
+chmod 664 /var/log/king-listen.log 2>/dev/null || true
+
 echo "==> Installing ${CONF_DST}"
 cp "$CONF_SRC" "$CONF_DST"
 chmod 644 "$CONF_DST"

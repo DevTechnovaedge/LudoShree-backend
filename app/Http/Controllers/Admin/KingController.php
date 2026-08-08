@@ -23,6 +23,10 @@ class KingController extends Controller
             'enabled' => (bool) config('king.enabled'),
             'paused' => (bool) Cache::get('king:paused', false),
             'alive' => king_ws_alive(),
+            'alive_at' => (int) Cache::get('king:alive_at', 0),
+            'last_error' => (string) Cache::get('king:daemon_last_error', ''),
+            'credentials_ok' => trim((string) config('king.api_key')) !== ''
+                && trim((string) config('king.api_secret')) !== '',
             'client_id' => (string) Cache::get('king:client_id', config('king.client_id', '')),
             'ws_url' => (string) config('king.ws_url'),
             'active_tables' => KingTable::whereIn('status', ['Pending', 'Start', 'View'])->count(),

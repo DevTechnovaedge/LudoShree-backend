@@ -37,16 +37,20 @@ chmod -R ug+rwx storage bootstrap/cache || true
 echo "==> King WebSocket daemon (king:listen)"
 if command -v supervisorctl >/dev/null 2>&1; then
   if supervisorctl status king-listen >/dev/null 2>&1; then
-    supervisorctl restart king-listen
+    supervisorctl restart king-listen || true
     echo "    restarted king-listen via supervisor"
   else
-    echo "    WARNING: king-listen is not registered in supervisor yet."
-    echo "    Run once on the server (with sudo):"
-    echo "      sudo bash ${APP_DIR}/scripts/setup-king-supervisor.sh"
+    echo "    king-listen not registered — attempting first-time supervisor setup..."
+    if sudo -n bash "${APP_DIR}/scripts/setup-king-supervisor.sh" 2>/dev/null; then
+      echo "    registered and started king-listen"
+    else
+      echo "    WARNING: auto-setup failed (needs passwordless sudo or manual run):"
+      echo "      sudo bash ${APP_DIR}/scripts/setup-king-supervisor.sh"
+    fi
   fi
 else
-  echo "    WARNING: supervisorctl not found; king:listen was not restarted."
-  echo "    Install supervisor and run scripts/setup-king-supervisor.sh"
+  echo "    WARNING: supervisorctl not found; install supervisor then run:"
+  echo "      sudo bash ${APP_DIR}/scripts/setup-king-supervisor.sh"
 fi
 
 echo "==> Deploy complete at $(git rev-parse --short HEAD)"
