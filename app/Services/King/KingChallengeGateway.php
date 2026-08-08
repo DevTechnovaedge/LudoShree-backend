@@ -202,6 +202,7 @@ class KingChallengeGateway
 
     /**
      * Called after an admin result / cancel / suspend / delete action.
+     * Same ResultUpdateRequest path as the app (no separate admin DK API).
      */
     public function afterAdminAction(?GameChallenge $challenge): void
     {
@@ -212,16 +213,23 @@ class KingChallengeGateway
         try {
             $challenge->refresh();
 
-            if (! $challenge->isKingLinked()) {
+            if (! $this->shouldSyncChallengeToKing($challenge)) {
                 return;
             }
 
-            if (! $challenge->opponent_id && in_array((int) $challenge->status, [2, 3, 7], true)) {
+            // Waiting table removed / cancelled with no joiner → delete on network.
+            if (! $challenge->opponent_id && in_array((int) $challenge->status, [2, 3, 6, 7], true)) {
+                $tableId = $this->kingTableIdForChallenge($challenge);
+                if ($tableId && ! $challenge->king_table_id) {
+                    $challenge->king_table_id = $tableId;
+                    $challenge->saveQuietly();
+                }
                 $this->outbox->enqueueDeleteTable($challenge);
 
                 return;
             }
 
+            // Joined match: admin Win / Loss / Cancel / Suspend → ResultUpdateRequest.
             $this->pushSideResults($challenge);
         } catch (\Throwable $e) {
             Log::error('[King] afterAdminAction failed', ['challenge_id' => $challenge->id ?? null, 'error' => $e->getMessage()]);
@@ -269,6 +277,7 @@ class KingChallengeGateway
                 1 => 'Win',
                 2 => 'Loss',
                 3 => 'Cancel',
+                // Admin suspend / force-cancel may leave side status at 0.
                 default => in_array((int) $challenge->status, [6, 7], true) ? 'Cancel' : null,
             };
 
@@ -276,7 +285,12 @@ class KingChallengeGateway
                 continue;
             }
 
-            $this->outbox->enqueueResult($challenge, $side['user_id'], $result, $side['image']);
+            $row = $this->outbox->enqueueResult($challenge, $side['user_id'], $result, $side['image']);
+            if ($row) {
+                KingEventLog::write('sys', 'ResultUpdateRequest', 'info',
+                    "Queued {$result} for challenge #{$challenge->id} user {$side['user_id']}",
+                    $row->payloadArray());
+            }
         }
     }
 

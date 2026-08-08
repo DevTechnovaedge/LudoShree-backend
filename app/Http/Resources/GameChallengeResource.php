@@ -155,6 +155,8 @@ class GameChallengeResource extends JsonResource
                  "opponent_id"              => $this->opponent_id ?? null,
                  "status"                   => $this->status ?? null,
                  "game_source"              => $this->game_source ?? 'local',
+                 "king_table_id"            => $this->king_table_id ?? null,
+                 "is_king_linked"           => (bool) $this->isKingLinked(),
                  "status_label"             => $status_label,
                  "bg_status_color_code"     => $bg_status_color_code,
                  "is_openable"              => $is_openable,

@@ -22,6 +22,18 @@
 	    .game-challenge-delete-btn{ display:none; }
 	@endif
 
+	.king-challenge-badge{
+		background: #0d6efd;
+		color: #fff;
+		font-size: 11px;
+		font-weight: 600;
+		letter-spacing: .3px;
+		padding: 3px 7px;
+		border-radius: 3px;
+		vertical-align: middle;
+	}
+	.king-table-id{ font-size: 10px; }
+
 </style>
 @endsection
 

@@ -537,6 +537,7 @@
                       <option value="cancel">Cancel</option>
                       <option value="suspended">Suspended</option>
                     </select>
+                    <small class="text-muted">DK Sync / DK Remote games use the same actions; result is pushed via ResultUpdateRequest.</small>
                   </div>
                 </div>
                 <!-- End Choose Action -->

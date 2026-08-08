@@ -72,6 +72,9 @@ class GameChallengeChanged implements ShouldBroadcastNow
                 'challenger_status' => $c->challenger_status,
                 'opponent_status' => $c->opponent_status,
                 'status' => $c->status,
+                'game_source' => $c->game_source ?? 'local',
+                'king_table_id' => $c->king_table_id,
+                'is_king_linked' => $c->isKingLinked(),
                 'game_type' => [
                     'id' => $c->game_type->id ?? null,
                     'name' => $c->game_type->name ?? null,

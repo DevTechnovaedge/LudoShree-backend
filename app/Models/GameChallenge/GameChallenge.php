@@ -79,6 +79,41 @@ class GameChallenge extends Model
         return ! empty($this->king_table_id) || $this->game_source === 'daddy_king';
     }
 
+    /**
+     * Compact admin badge: DK Sync (we created) vs DK Remote (Daddy King origin).
+     */
+    public function kingBadgeHtml(): string
+    {
+        if (! $this->isKingLinked()) {
+            return '';
+        }
+
+        $label = $this->game_source === 'daddy_king' ? 'DK Remote' : 'DK Sync';
+        $tableId = $this->king_table_id ? e((string) $this->king_table_id) : '';
+        $title = $tableId !== '' ? " title=\"{$tableId}\"" : '';
+
+        $html = "<span class=\"badge badge-info king-challenge-badge\"{$title}>{$label}</span>";
+        if ($tableId !== '') {
+            $html .= " <small class=\"text-muted king-table-id\">{$tableId}</small>";
+        }
+
+        return $html;
+    }
+
+    /**
+     * Admin Action (win/cancel/suspend) — same decisions as the app, for any
+     * joined match (including Daddy King games that may not have a roomcode yet).
+     */
+    public function canShowAdminActionButton(): bool
+    {
+        if ((int) $this->status === 4) {
+            return false;
+        }
+
+        // Waiting open table: delete is enough; Action needs a joined match.
+        return (bool) $this->roomcode || (bool) $this->opponent_id;
+    }
+
   
     public function getCreatedAtAttribute($val){
         return $val ? date('d F, Y ( h:i a )', strtotime($val)) : '';
@@ -264,6 +299,11 @@ class GameChallenge extends Model
         $game_details    =      "<div class='py-1'>".$this->game_type->name."</div>";
         $game_details    .=     "<div class='py-1'>(GameId: $this->uid)</div>";
 
+        $kingBadge = $this->kingBadgeHtml();
+        if ($kingBadge !== '') {
+            $game_details .= "<div class='py-1'>{$kingBadge}</div>";
+        }
+
         
             $game_details    .=     "<div class='py-1'>$this->status_view</div>";
         
@@ -273,11 +313,13 @@ class GameChallenge extends Model
             $game_details    .=     "<div class='py-1'>Closed: $this->closed_at</div>";
         endif;
         
-        # Action Button
-        // if($this->status == 5 || $this->status == 3 || $this->status == 1 || ( $this->status == 2 && ( $this->challenger_status == 1 || $this->opponent_status == 1 ))):
+        # Action Button — same win/cancel/suspend modal as local games; King sync
+        # happens after save via ResultUpdateRequest (no separate DK action path).
         if( $this->status != 4 ):
 
-            $action_btn         =   $this->roomcode ? "<button type='button' class='btn btn-sm btn-danger rounded-0 game-challenge-action-btn' data-game-id='$this->uid'>Action</button>" : "";
+            $action_btn = $this->canShowAdminActionButton()
+                ? "<button type='button' class='btn btn-sm btn-danger rounded-0 game-challenge-action-btn' data-game-id='$this->uid'>Action</button>"
+                : '';
             $game_details    .=     "<div class='py-1'>
                                         $action_btn
                                         <button type='button' class='btn btn-sm btn-danger rounded-0 game-challenge-delete-btn' data-game-id='$this->uid'>Delete</button>
@@ -358,6 +400,9 @@ class GameChallenge extends Model
          
         $game_details    =      "<div class='py-1'>".$this->challenger->name."</div>";
         $game_details    .=     "<div class='py-1'><small>( UID : <a href='$edit_route' target='_blank'>$uid</a> )</small></div>";
+        if (is_king_ghost_user($this->challenger_id)) {
+            $game_details .= "<div class='py-1'><span class='badge badge-info king-challenge-badge'>DK Player</span></div>";
+        }
         $game_details    .=     "<div class='py-1'>$game_result</div>";
         
         if($this->challenger_result_date):
@@ -421,6 +466,9 @@ class GameChallenge extends Model
             
             $game_details    =      "<div class='py-1'>".$this->opponent->name."</div>";
             $game_details    .=     "<div class='py-1'><small>( UID : <a href='$edit_route' target='_blank'>$uid</a> )</small></div>";
+            if (is_king_ghost_user($this->opponent_id)) {
+                $game_details .= "<div class='py-1'><span class='badge badge-info king-challenge-badge'>DK Player</span></div>";
+            }
             $game_details    .=     "<div class='py-1'>$game_result</div>";
             
             if($this->opponent_result_date):
