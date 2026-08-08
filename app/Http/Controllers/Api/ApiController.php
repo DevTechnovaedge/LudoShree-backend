@@ -2263,12 +2263,13 @@ class ApiController extends Controller
             Wallet::create($wallet_data);
         endif;
 
-        # King (Daddy King) sync hook: only inserts king_outbox rows (fast DB
-        # writes) - the king:listen daemon does all network communication.
-        try {
-            app(KingChallengeGateway::class)->afterLocalChallengeAction((string) request()->type, $game_challenge, $user);
-        } catch (\Throwable $kingHookError) {
-            Log::error('[King] challenge hook failed', ['error' => $kingHookError->getMessage()]);
+        # King (Daddy King) sync hook: only after a successful challenge update.
+        if ($result && ($arr['status'] ?? false)) {
+            try {
+                app(KingChallengeGateway::class)->afterLocalChallengeAction((string) request()->type, $game_challenge, $user);
+            } catch (\Throwable $kingHookError) {
+                Log::error('[King] challenge hook failed', ['error' => $kingHookError->getMessage()]);
+            }
         }
 
         event(new DemoEvent(''));

@@ -7,6 +7,7 @@ use App\Http\Resources\UserResource;
 use App\Models\GameChallenge\GameChallenge;
 use App\Models\King\KingEventLog;
 use App\Models\King\KingOutbox;
+use App\Models\King\KingTable;
 use App\Models\User;
 use Illuminate\Support\Facades\Log;
 
@@ -164,25 +165,7 @@ class KingChallengeGateway
                     break;
 
                 case 'cancel':
-                    if ($challenge->isKingLinked()) {
-                        if (! $challenge->opponent_id) {
-                            // Waiting table — no match yet; remove from the network.
-                            $this->outbox->enqueueDeleteTable($challenge);
-                        } elseif ($user && ! is_king_ghost_user($user->id)) {
-                            // Running / disputed game — report Cancel to the King network
-                            // so the other platform's status updates via ResultUpdateRequest.
-                            $side = (int) $user->id === (int) $challenge->challenger_id
-                                ? 'challenger'
-                                : 'opponent';
-                            $this->outbox->enqueueResult(
-                                $challenge,
-                                (int) $user->id,
-                                'Cancel',
-                                $this->screenshotUrl($challenge, $side),
-                                request()->input('proof_video') ?: request()->input('video')
-                            );
-                        }
-                    }
+                    $this->handleKingCancel($challenge, $user);
                     break;
 
                 case 'winner':
@@ -329,5 +312,128 @@ class KingChallengeGateway
             : (int) $challenge->challenger_id;
 
         return $otherId > 0 && is_king_ghost_user($otherId);
+    }
+
+    /**
+     * Queue Cancel on the King network when a match has started there, or
+     * delete the table when it is still genuinely waiting.
+     */
+    private function handleKingCancel(GameChallenge $challenge, ?User $user): void
+    {
+        if (! $this->shouldSyncChallengeToKing($challenge)) {
+            return;
+        }
+
+        $mirror = $this->resolveKingMirror($challenge);
+        $startedOnNetwork = $this->kingGameStartedOnNetwork($challenge, $mirror);
+
+        if (! $startedOnNetwork) {
+            $tableId = $this->kingTableIdForChallenge($challenge, $mirror);
+            if ($tableId && ! $challenge->king_table_id) {
+                $challenge->king_table_id = $tableId;
+                $challenge->saveQuietly();
+            }
+
+            $this->outbox->enqueueDeleteTable($challenge);
+            KingEventLog::write('sys', 'KingTableDeleteRequest', 'info',
+                "Cancel waiting challenge #{$challenge->id} (no King join yet) -> network delete");
+
+            return;
+        }
+
+        if (! $user || is_king_ghost_user($user->id)) {
+            return;
+        }
+
+        $tableId = $this->kingTableIdForChallenge($challenge, $mirror);
+        if ($tableId && ! $challenge->king_table_id) {
+            $challenge->king_table_id = $tableId;
+            $challenge->saveQuietly();
+        }
+
+        $side = (int) $user->id === (int) $challenge->challenger_id ? 'challenger' : 'opponent';
+        $row = $this->outbox->enqueueResult(
+            $challenge,
+            (int) $user->id,
+            'Cancel',
+            $this->screenshotUrl($challenge, $side),
+            request()->input('proof_video') ?: request()->input('video')
+        );
+
+        if ($row) {
+            KingEventLog::write('sys', 'ResultUpdateRequest', 'info',
+                "Cancel queued for challenge #{$challenge->id} on {$tableId}", $row->payloadArray());
+        }
+    }
+
+    private function shouldSyncChallengeToKing(GameChallenge $challenge): bool
+    {
+        if ($challenge->isKingLinked()) {
+            return true;
+        }
+
+        if ($challenge->game_source !== 'local') {
+            return false;
+        }
+
+        return KingOutbox::query()
+            ->where('game_challenge_id', $challenge->id)
+            ->where('event', 'KingCreateTableRequest')
+            ->whereIn('status', [
+                KingOutbox::STATUS_PENDING,
+                KingOutbox::STATUS_SENT,
+                KingOutbox::STATUS_SUCCESS,
+            ])
+            ->exists();
+    }
+
+    private function resolveKingMirror(GameChallenge $challenge): ?KingTable
+    {
+        $tableId = $this->kingTableIdForChallenge($challenge);
+
+        return KingTable::query()
+            ->where(function ($q) use ($challenge, $tableId) {
+                $q->where('game_challenge_id', $challenge->id);
+                if ($tableId) {
+                    $q->orWhere('king_table_id', $tableId);
+                }
+            })
+            ->first();
+    }
+
+    private function kingTableIdForChallenge(GameChallenge $challenge, ?KingTable $mirror = null): ?string
+    {
+        if ($challenge->king_table_id) {
+            return (string) $challenge->king_table_id;
+        }
+
+        if ($mirror?->king_table_id) {
+            return (string) $mirror->king_table_id;
+        }
+
+        if ($challenge->game_source !== 'local') {
+            return null;
+        }
+
+        $clientId = (string) (app(KingSyncService::class)->ourClientId() ?: config('king.client_id', ''));
+
+        return $clientId !== '' ? "DK-{$clientId}-{$challenge->id}" : null;
+    }
+
+    private function kingGameStartedOnNetwork(GameChallenge $challenge, ?KingTable $mirror): bool
+    {
+        if ($challenge->opponent_id) {
+            return true;
+        }
+
+        if (! $mirror) {
+            return false;
+        }
+
+        if (! empty($mirror->joined_by_id)) {
+            return true;
+        }
+
+        return in_array(strtolower((string) $mirror->status), ['start', 'view', 'completed'], true);
     }
 }
