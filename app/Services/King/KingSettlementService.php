@@ -6,7 +6,6 @@ use App\Models\GameChallenge\GameChallenge;
 use App\Models\GameChallenge\Wallet;
 use App\Models\King\KingEventLog;
 use App\Models\King\KingOutbox;
-use App\Models\Notification\Notification;
 use App\Models\User;
 use App\Services\GameChallengeStakeRefundService;
 use App\Services\GameChallengeWaitingDismissService;
@@ -476,24 +475,13 @@ class KingSettlementService
             return;
         }
 
-        try {
-            if ($user->fcm_device_token) {
-                fcm()->send((object) [
-                    'title' => $title,
-                    'body' => $body,
-                    'notification_type' => $type,
-                    'fcm_device_token' => $user->fcm_device_token,
-                ]);
-            }
-
-            Notification::create([
-                'user_ids' => (string) $notificationUserId,
-                'title' => $title,
-                'content' => $body,
-                'notification_type' => $type,
-            ]);
-        } catch (\Throwable $e) {
-            Log::warning('[King] notification failed', ['error' => $e->getMessage()]);
-        }
+        safe_notify(
+            $user->fcm_device_token,
+            $title,
+            $body,
+            $type,
+            (string) $notificationUserId,
+            ['context' => 'king_settlement']
+        );
     }
 }

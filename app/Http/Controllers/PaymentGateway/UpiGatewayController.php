@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\GatewayPayment;
 use App\Models\GameChallenge\Transaction;
 use App\Models\GameChallenge\Wallet;
-use App\Models\Notification\Notification;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -755,21 +754,13 @@ class UpiGatewayController extends Controller
 
     private function notifyDeposit(User $user, $amount): void
     {
-        $title = 'Amount deposited successfully';
-        $body  = 'Amount deposited ( ₹' . $amount . ' ) successfully to game wallet.';
-
-        fcm()->send((object) [
-            'title'            => $title,
-            'body'             => $body,
-            'notification_type'=> 'credit',
-            'fcm_device_token' => $user->fcm_device_token,
-        ]);
-
-        Notification::create([
-            'user_ids'          => $user->id,
-            'title'             => $title,
-            'content'           => $body,
-            'notification_type' => 'credit',
-        ]);
+        safe_notify(
+            $user->fcm_device_token,
+            'Amount deposited successfully',
+            'Amount deposited ( ₹' . $amount . ' ) successfully to game wallet.',
+            'credit',
+            $user->id,
+            ['user_id' => $user->id, 'context' => 'upi_deposit']
+        );
     }
 }

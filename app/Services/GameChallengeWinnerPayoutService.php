@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Models\GameChallenge\GameChallenge;
 use App\Models\GameChallenge\CommissionHistory;
 use App\Models\GameChallenge\Wallet;
-use App\Models\Notification\Notification;
 use App\Models\User;
 
 /**
@@ -112,32 +111,14 @@ class GameChallengeWinnerPayoutService
             ]);
         }
 
-        $notification_title = 'Winner';
-        $notification_body = "Congratulation, you win. Ref: $game_challenge->uid";
-        $notification_type = 'winner';
-
-        $token = optional($game_challenge->challenger)->fcm_device_token;
-        if ($token) {
-            $fcm_data = (object) [
-                'title' => $notification_title,
-                'body' => $notification_body,
-                'notification_type' => $notification_type,
-                'fcm_device_token' => $token,
-            ];
-
-            try {
-                fcm()->send($fcm_data);
-            } catch (\Throwable $e) {
-                // ignore push failures — same tolerance as legacy admin branch
-            }
-        }
-
-        Notification::create([
-            'user_ids' => $game_challenge->challenger_id,
-            'title' => $notification_title,
-            'content' => $notification_body,
-            'notification_type' => $notification_type,
-        ]);
+        safe_notify(
+            optional($game_challenge->challenger)->fcm_device_token,
+            'Winner',
+            "Congratulation, you win. Ref: $game_challenge->uid",
+            'winner',
+            $game_challenge->challenger_id,
+            ['game_challenge_id' => $game_challenge->id]
+        );
     }
 
     public function awardOpponentWin(GameChallenge $game_challenge): void
@@ -232,29 +213,13 @@ class GameChallengeWinnerPayoutService
             ]);
         }
 
-        $notification_title = 'Winner';
-        $notification_body = "Congratulation, you win. Ref: $game_challenge->uid";
-        $notification_type = 'winner';
-
-        $token = optional($game_challenge->opponent)->fcm_device_token;
-        if ($token) {
-            $fcm_data = (object) [
-                'title' => $notification_title,
-                'body' => $notification_body,
-                'notification_type' => $notification_type,
-                'fcm_device_token' => $token,
-            ];
-            try {
-                fcm()->send($fcm_data);
-            } catch (\Throwable $e) {
-            }
-        }
-
-        Notification::create([
-            'user_ids' => $game_challenge->opponent_id,
-            'title' => $notification_title,
-            'content' => $notification_body,
-            'notification_type' => $notification_type,
-        ]);
+        safe_notify(
+            optional($game_challenge->opponent)->fcm_device_token,
+            'Winner',
+            "Congratulation, you win. Ref: $game_challenge->uid",
+            'winner',
+            $game_challenge->opponent_id,
+            ['game_challenge_id' => $game_challenge->id]
+        );
     }
 }

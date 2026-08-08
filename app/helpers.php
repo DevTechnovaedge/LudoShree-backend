@@ -15,6 +15,7 @@ use Illuminate\Support\Number;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
 
+use App\Models\Notification\Notification;
 use App\Services\FcmNotificationService;
 use App\Services\HaodaPay;
 
@@ -66,6 +67,77 @@ if (!function_exists('get_client_ip')) {
 if(!function_exists('fcm')){
   function fcm(){
     return new FcmNotificationService;
+  }
+}
+
+if (!function_exists('safe_fcm_send')) {
+  /**
+   * Send FCM push without ever throwing to the caller.
+   *
+   * @param  object|array  $data
+   * @return mixed|null
+   */
+  function safe_fcm_send($data)
+  {
+    try {
+      $payload = is_array($data) ? (object) $data : $data;
+
+      return fcm()->send($payload);
+    } catch (\Throwable $e) {
+      Log::warning('[FCM] safe_fcm_send failed', ['error' => $e->getMessage()]);
+
+      return null;
+    }
+  }
+}
+
+if (!function_exists('safe_notify')) {
+  /**
+   * Deliver push + in-app notification without breaking API / money flows.
+   *
+   * @param  string|null            $fcmDeviceToken
+   * @param  int|string|array|null  $userIds
+   */
+  function safe_notify(
+    ?string $fcmDeviceToken,
+    string $title,
+    string $body,
+    string $type,
+    $userIds = null,
+    array $context = [],
+    ?string $topic = null
+  ): void {
+    try {
+      if ($topic) {
+        safe_fcm_send([
+          'title' => $title,
+          'body' => $body,
+          'notification_type' => $type,
+          'topic' => $topic,
+        ]);
+      } elseif (! empty($fcmDeviceToken)) {
+        safe_fcm_send([
+          'title' => $title,
+          'body' => $body,
+          'notification_type' => $type,
+          'fcm_device_token' => $fcmDeviceToken,
+        ]);
+      }
+
+      if ($userIds !== null && $userIds !== '' && $userIds !== []) {
+        Notification::create([
+          'user_ids' => is_array($userIds) ? implode(',', array_unique($userIds)) : (string) $userIds,
+          'title' => $title,
+          'content' => $body,
+          'notification_type' => $type,
+        ]);
+      }
+    } catch (\Throwable $e) {
+      Log::warning('[notify] delivery failed', array_merge($context, [
+        'type' => $type,
+        'error' => $e->getMessage(),
+      ]));
+    }
   }
 }
 

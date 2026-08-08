@@ -5,7 +5,6 @@ namespace App\Http\Controllers\PaymentGateway;
 use App\Http\Controllers\Controller;
 use App\Models\GameChallenge\Transaction;
 use App\Models\GameChallenge\Wallet;
-use App\Models\Notification\Notification;
 use App\Models\User;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
@@ -145,26 +144,14 @@ class CashFreeController extends Controller
                     # ===========================================================================
         #   Notification
         # ===========================================================================
-                $notification_title        =   'Amount deposited successfully';
-                $notification_body        =   'Amount deposited ( ₹'.$transaction->amount.' ) successfully to game wallet.';
-                $notification_type        =   'credit';
-
-                $fcm_data  =  (object)
-                [
-                    'title'                 => $notification_title,
-                    'body'                  => $notification_body,
-                    'notification_type'     => $notification_type,
-                    'fcm_device_token'      =>  $user->fcm_device_token,
-                ];
-
-                fcm()->send($fcm_data);
-
-                Notification::create([
-                    'user_ids'              => $user->id,
-                    'title'                 => $notification_title,
-                    'content'               => $notification_body,
-                    'notification_type'     => $notification_type,
-                ]);
+                safe_notify(
+                    $user->fcm_device_token,
+                    'Amount deposited successfully',
+                    'Amount deposited ( ₹'.$transaction->amount.' ) successfully to game wallet.',
+                    'credit',
+                    $user->id,
+                    ['user_id' => $user->id, 'context' => 'cashfree_callback']
+                );
 
             # Notification
 
@@ -241,28 +228,14 @@ class CashFreeController extends Controller
                 # ===========================================================================
         #   Notification
         # ===========================================================================
-        $notification_title        =   'Amount deposited successfully';
-        $notification_body        =   'Amount deposited ( ₹'.$transaction->amount.' ) successfully to game wallet.';
-        $notification_type        =   'credit';
-
-        $fcm_data  =  (object)
-        [
-            'title'                 => $notification_title,
-            'body'                  => $notification_body,
-            'notification_type'     => $notification_type,
-            'fcm_device_token'      =>  $user->fcm_device_token,
-        ];
-
-        Log::info('FCM data:', ['FCM data' => $fcm_data]);
-
-        fcm()->send($fcm_data);
-
-        Notification::create([
-            'user_ids'              => $user->id,
-            'title'                 => $notification_title,
-            'content'               => $notification_body,
-            'notification_type'     => $notification_type,
-        ]);
+        safe_notify(
+            $user->fcm_device_token,
+            'Amount deposited successfully',
+            'Amount deposited ( ₹'.$transaction->amount.' ) successfully to game wallet.',
+            'credit',
+            $user->id,
+            ['user_id' => $user->id, 'context' => 'cashfree_webhook']
+        );
 
     # Notification
 

@@ -7,7 +7,6 @@ use App\Models\Financial\TransferCashback;
 use App\Models\GameChallenge\GameChallenge;
 use App\Models\GameChallenge\Transaction;
 use App\Models\GameChallenge\Wallet;
-use App\Models\Notification\Notification;
 use App\Models\User;
 use App\Services\LkGameApiService;
 use Illuminate\Http\Request;
@@ -67,22 +66,14 @@ class AdminController extends Controller
           $notification_body      = 'Amount withdrawal successfully.';
           $notification_type      =  'withdrawal';
 
-          $fcm_data  =  (object)
-          [
-            'title'                 => $notification_title,
-            'body'                  => $notification_body,
-            'notification_type'     => $notification_type,
-            'fcm_device_token'      => $user->fcm_device_token,
-          ];
-
-          fcm()->send($fcm_data);
-
-          Notification::create([
-            'user_ids'              => $transaction->user->id,
-            'title'                 => $notification_title,
-            'content'               => $notification_body,
-            'notification_type'     => $notification_type,
-          ]);
+          safe_notify(
+            $user->fcm_device_token,
+            $notification_title,
+            $notification_body,
+            $notification_type,
+            $transaction->user->id,
+            ['transaction_id' => $transaction->id, 'context' => 'admin_withdrawal_approve']
+          );
           # Notification
           # ===========================================================================
           #   End Notification
@@ -160,22 +151,14 @@ class AdminController extends Controller
           $notification_body      = 'Amount deposited successfully.';
           $notification_type      =  'deposit';
 
-          $fcm_data  =  (object)
-          [
-            'title'                 => $notification_title,
-            'body'                  => $notification_body,
-            'notification_type'     => $notification_type,
-            'fcm_device_token'      => $user->fcm_device_token,
-          ];
-
-          fcm()->send($fcm_data);
-
-          Notification::create([
-            'user_ids'              => $transaction->user->id,
-            'title'                 => $notification_title,
-            'content'               => $notification_body,
-            'notification_type'     => $notification_type,
-          ]);
+          safe_notify(
+            $user->fcm_device_token,
+            $notification_title,
+            $notification_body,
+            $notification_type,
+            $transaction->user->id,
+            ['transaction_id' => $transaction->id, 'context' => 'admin_deposit_approve']
+          );
           # Notification
           # ===========================================================================
           #   End Notification

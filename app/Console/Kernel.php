@@ -61,7 +61,7 @@ class Kernel extends ConsoleKernel
                                 ];
                             
 
-                            if(fcm()->send($fcm_data)):
+                            if(safe_fcm_send($fcm_data)):
                                 Notification::whereId($notification->id)->increment('sent_count');
                                 Notification::whereId($notification->id)->update([ 'is_sent' => 1]);
                             endif;

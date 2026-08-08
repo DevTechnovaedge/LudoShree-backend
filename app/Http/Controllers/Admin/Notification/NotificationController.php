@@ -115,7 +115,7 @@ class NotificationController extends Controller
                         'topic'     =>  'all',
                     ];
 
-                    fcm()->send($data);
+                    safe_fcm_send($data);
                     $record->is_sent = 1;
                     $record->save();
                 }
@@ -137,7 +137,8 @@ class NotificationController extends Controller
                     
                                             ];
                         
-                            $is_sent = ( fcm()->send($data)->name ?? 0 ) ? 1 : 0;
+                            $response = safe_fcm_send($data);
+                            $is_sent = (($response->name ?? null) ? 1 : 0);
                         endforeach;
                         
                         // if($is_sent ?? 0):

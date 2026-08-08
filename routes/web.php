@@ -163,7 +163,7 @@ Route::get('push-notification', function () {
             'topic' => 'all',
 
         ];
-    fcm()->send($data);
+    safe_fcm_send($data);
     // endforeach;
 
     return 'Sent';

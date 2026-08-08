@@ -170,29 +170,18 @@ class ApiController extends Controller
 
             foreach ($cashiers as $cashier) {
                 $ids[] = $cashier->id;
-
-                try {
-                    fcm()->send((object) [
-                        'title' => $title,
-                        'body' => $body,
-                        'notification_type' => 'cashier_withdrawal',
-                        'fcm_device_token' => $cashier->fcm_device_token,
-                    ]);
-                } catch (\Throwable $e) {
-                    Log::warning('FCM to cashier failed (pending withdrawal)', [
-                        'cashier_id' => $cashier->id,
-                        'error' => $e->getMessage(),
-                    ]);
-                }
+                safe_notify(
+                    $cashier->fcm_device_token,
+                    $title,
+                    $body,
+                    'cashier_withdrawal',
+                    null,
+                    ['cashier_id' => $cashier->id]
+                );
             }
 
             if ($ids !== []) {
-                Notification::create([
-                    'user_ids' => implode(',', array_unique($ids)),
-                    'title' => $title,
-                    'content' => $body,
-                    'notification_type' => 'cashier_withdrawal',
-                ]);
+                safe_notify(null, $title, $body, 'cashier_withdrawal', array_unique($ids));
             }
         } catch (\Throwable $e) {
             Log::warning('notifyCashiersPendingWithdrawal failed', ['error' => $e->getMessage()]);
@@ -924,12 +913,13 @@ class ApiController extends Controller
                 $notification_body = 'Game Challenge created successfully Ref:' . $game_id;
                 $notification_type = 'create';
 
-                Notification::create([
-                    'user_ids'              => $this->user()->id,
-                    'title'                 => $notification_title,
-                    'content'               => $notification_body,
-                    'notification_type'     => $notification_type,
-                ]);
+                safe_notify(
+                    null,
+                    $notification_title,
+                    $notification_body,
+                    $notification_type,
+                    $this->user()->id
+                );
                 # Notification
                 # ===========================================================================
                 #   End Notification
@@ -1116,21 +1106,14 @@ class ApiController extends Controller
                 $notification_body = 'Game Challenge accepted: ' . $game_challenge->uid;
                 $notification_type = 'accept';
 
-                // Send FCM Notification
-                fcm()->send((object)[
-                    'title' => $notification_title,
-                    'body' => $notification_body,
-                    'notification_type' => $notification_type,
-                    'fcm_device_token' => $game_challenge->challenger->fcm_device_token,
-                ]);
-
-                // Create Notification Entry
-                Notification::create([
-                    'user_ids' => $this->user()->id,
-                    'title' => $notification_title,
-                    'content' => $notification_body,
-                    'notification_type' => $notification_type,
-                ]);
+                safe_notify(
+                    optional($game_challenge->challenger)->fcm_device_token,
+                    $notification_title,
+                    $notification_body,
+                    $notification_type,
+                    $this->user()->id,
+                    ['game_challenge_id' => $game_challenge->id]
+                );
 
                 $message    =   'Game Challenge accepted successfully.';
 
@@ -1247,33 +1230,14 @@ class ApiController extends Controller
                 # Handle Game Challenge Data
                 # ===========================================================================
                 if ($recipient) {
-                    $notification_title = 'Challenge cancel';
-                    $notification_body = 'Game Challenge cancel ' . $game_challenge->uid;
-                    $notification_type = 'cancel';
-
-                    // Never let push/notification failures block cancel.
-                    try {
-                        if (! empty($recipient->fcm_device_token)) {
-                            fcm()->send((object) [
-                                'title' => $notification_title,
-                                'body' => $notification_body,
-                                'notification_type' => $notification_type,
-                                'fcm_device_token' => $recipient->fcm_device_token,
-                            ]);
-                        }
-
-                        Notification::create([
-                            'user_ids' => $user->id,
-                            'title' => $notification_title,
-                            'content' => $notification_body,
-                            'notification_type' => $notification_type,
-                        ]);
-                    } catch (\Throwable $notificationError) {
-                        Log::warning('[challenge] cancel notification failed', [
-                            'game_challenge_id' => $game_challenge->id,
-                            'error' => $notificationError->getMessage(),
-                        ]);
-                    }
+                    safe_notify(
+                        $recipient->fcm_device_token ?? null,
+                        'Challenge cancel',
+                        'Game Challenge cancel ' . $game_challenge->uid,
+                        'cancel',
+                        $user->id,
+                        ['game_challenge_id' => $game_challenge->id]
+                    );
                 }
 
                   # Waiting game (no opponent): refund creator stake immediately
@@ -1449,34 +1413,14 @@ class ApiController extends Controller
                 $notification_body        =   'Game Challenge roomcode updated Ref: ' . $game_challenge->uid;
                 $notification_type        =   'roomcode';
 
-                $opponent = $game_challenge->opponent;
-                $opponentFcmToken = $opponent->fcm_device_token ?? '';
-
-                if ($opponentFcmToken !== '') {
-                    try {
-                        fcm()->send((object) [
-                            'title'                 => $notification_title,
-                            'body'                  => $notification_body,
-                            'notification_type'     => $notification_type,
-                            'fcm_device_token'      => $opponentFcmToken,
-                        ]);
-                    } catch (\Throwable $e) {
-                        Log::warning('FCM roomcode notification failed', [
-                            'game_challenge_id' => $game_challenge->id,
-                            'opponent_id'       => $game_challenge->opponent_id,
-                            'error'             => $e->getMessage(),
-                        ]);
-                    }
-                }
-
-                if ($game_challenge->opponent_id) {
-                    Notification::create([
-                        'user_ids'              => (string) $game_challenge->opponent_id,
-                        'title'                 => $notification_title,
-                        'content'               => $notification_body,
-                        'notification_type'     => $notification_type,
-                    ]);
-                }
+                safe_notify(
+                    optional($game_challenge->opponent)->fcm_device_token,
+                    $notification_title,
+                    $notification_body,
+                    $notification_type,
+                    $game_challenge->opponent_id ? (string) $game_challenge->opponent_id : null,
+                    ['game_challenge_id' => $game_challenge->id]
+                );
                 # Notification
 
                 # ===========================================================================
@@ -1649,26 +1593,14 @@ class ApiController extends Controller
                     #   Notification
                     # ===========================================================================
                     # Notification
-                    $notification_title        =   "Result updated $game_challenge->uid";
-                    $notification_body        =   "Game Challenge result updated by challenger ";
-                    $notification_type        =   'winner';
-
-                    $fcm_data  =  (object)
-                    [
-                        'title'                 => $notification_title,
-                        'body'                  => $notification_body,
-                        'notification_type'     => $notification_type,
-                        'fcm_device_token'      =>  $game_challenge->opponent->fcm_device_token,
-                    ];
-
-                    fcm()->send($fcm_data);
-
-                    Notification::create([
-                        'user_ids'              => $this->user()->id,
-                        'title'                 => $notification_title,
-                        'content'               => $notification_body,
-                        'notification_type'     => $notification_type,
-                    ]);
+                    safe_notify(
+                        optional($game_challenge->opponent)->fcm_device_token,
+                        "Result updated $game_challenge->uid",
+                        'Game Challenge result updated by challenger ',
+                        'winner',
+                        $this->user()->id,
+                        ['game_challenge_id' => $game_challenge->id]
+                    );
                 # Notification
 
                 # ===========================================================================
@@ -1738,26 +1670,14 @@ class ApiController extends Controller
                     #   Notification
                     # ===========================================================================
                     # Notification
-                    $notification_title        =   "Result updated $game_challenge->uid";
-                    $notification_body        =   "Game Challenge result updated by opponent";
-                    $notification_type        =   'result_updated';
-
-                    $fcm_data  =  (object)
-                    [
-                        'title'                 => $notification_title,
-                        'body'                  => $notification_body,
-                        'notification_type'     => $notification_type,
-                        'fcm_device_token'      =>  $game_challenge->challenger->fcm_device_token,
-                    ];
-
-                    fcm()->send($fcm_data);
-
-                    Notification::create([
-                        'user_ids'              => $this->user()->id,
-                        'title'                 => $notification_title,
-                        'content'               => $notification_body,
-                        'notification_type'     => $notification_type,
-                    ]);
+                    safe_notify(
+                        optional($game_challenge->challenger)->fcm_device_token,
+                        "Result updated $game_challenge->uid",
+                        'Game Challenge result updated by opponent',
+                        'result_updated',
+                        $this->user()->id,
+                        ['game_challenge_id' => $game_challenge->id]
+                    );
                 # Notification
 
                 # ===========================================================================
@@ -1965,26 +1885,14 @@ class ApiController extends Controller
                     #   Notification
                     # ===========================================================================
                     # Notification
-                    $notification_title        =   "Winner";
-                    $notification_body        =   "Congratulation, you win. Ref: $game_challenge->uid";
-                    $notification_type        =   'winner';
-
-                    $fcm_data  =  (object)
-                    [
-                        'title'                 => $notification_title,
-                        'body'                  => $notification_body,
-                        'notification_type'     => $notification_type,
-                        'fcm_device_token'      =>  $game_challenge->opponent->fcm_device_token,
-                    ];
-
-                    fcm()->send($fcm_data);
-
-                    Notification::create([
-                        'user_ids'              => $this->user()->id,
-                        'title'                 => $notification_title,
-                        'content'               => $notification_body,
-                        'notification_type'     => $notification_type,
-                    ]);
+                    safe_notify(
+                        optional($game_challenge->opponent)->fcm_device_token,
+                        'Winner',
+                        "Congratulation, you win. Ref: $game_challenge->uid",
+                        'winner',
+                        $this->user()->id,
+                        ['game_challenge_id' => $game_challenge->id]
+                    );
                 # Notification
 
                     endif;
@@ -2105,26 +2013,14 @@ class ApiController extends Controller
                     # ===========================================================================
                     #   Notification
                     # ===========================================================================
-                    $notification_title       =   "Winner";
-                    $notification_body        =   "Congratulation, you win. Ref: $game_challenge->uid";
-                    $notification_type        =   'winner';
-
-                    $fcm_data  =  (object)
-                    [
-                        'title'                 => $notification_title,
-                        'body'                  => $notification_body,
-                        'notification_type'     => $notification_type,
-                        'fcm_device_token'      =>  $game_challenge->challenger->fcm_device_token,
-                    ];
-
-                    fcm()->send($fcm_data);
-
-                    Notification::create([
-                        'user_ids'              => $this->user()->id,
-                        'title'                 => $notification_title,
-                        'content'               => $notification_body,
-                        'notification_type'     => $notification_type,
-                    ]);
+                    safe_notify(
+                        optional($game_challenge->challenger)->fcm_device_token,
+                        'Winner',
+                        "Congratulation, you win. Ref: $game_challenge->uid",
+                        'winner',
+                        $this->user()->id,
+                        ['game_challenge_id' => $game_challenge->id]
+                    );
                 # Notification
 
                     endif;
@@ -2610,33 +2506,14 @@ class ApiController extends Controller
 
             $message = "Withdrawal amount will be reflected within 10-15 mins";
 
-            // Notify requester in-app/push so withdrawal submission is visible immediately.
-            $notification_title = 'Withdrawal Request Submitted';
-            $notification_body = 'Your withdrawal request is received and is currently pending review.';
-            $notification_type = 'withdrawal';
-
-            try {
-                if (!empty($user->fcm_device_token)) {
-                    fcm()->send((object) [
-                        'title'                 => $notification_title,
-                        'body'                  => $notification_body,
-                        'notification_type'     => $notification_type,
-                        'fcm_device_token'      => $user->fcm_device_token,
-                    ]);
-                }
-            } catch (\Throwable $e) {
-                Log::warning('FCM send failed for withdrawal submission', [
-                    'user_id' => $user->id,
-                    'error' => $e->getMessage(),
-                ]);
-            }
-
-            Notification::create([
-                'user_ids'              => $user->id,
-                'title'                 => $notification_title,
-                'content'               => $notification_body,
-                'notification_type'     => $notification_type,
-            ]);
+            safe_notify(
+                $user->fcm_device_token,
+                'Withdrawal Request Submitted',
+                'Your withdrawal request is received and is currently pending review.',
+                'withdrawal',
+                $user->id,
+                ['user_id' => $user->id, 'transaction_id' => $transaction->id]
+            );
 
             $this->notifyCashiersPendingWithdrawal($transaction, $user);
         endif;
@@ -2664,26 +2541,14 @@ class ApiController extends Controller
             #   Notification
             # ===========================================================================
             # Notification
-            $notification_title     = 'Deposit Successfully';
-            $notification_body     = 'Amount deposit successfully.';
-            $notification_type     =  'deposit';
-
-            $fcm_data  =  (object)
-            [
-                'title'                 => $notification_title,
-                'body'                  => $notification_body,
-                'notification_type'     => $notification_type,
-                'fcm_device_token'      =>  $this->user()->fcm_device_token,
-            ];
-
-            fcm()->send($fcm_data);
-
-            Notification::create([
-                'user_ids'              => $this->user()->id,
-                'title'                 => $notification_title,
-                'content'               => $notification_body,
-                'notification_type'     => $notification_type,
-            ]);
+            safe_notify(
+                $this->user()->fcm_device_token,
+                'Deposit Successfully',
+                'Amount deposit successfully.',
+                'deposit',
+                $this->user()->id,
+                ['user_id' => $this->user()->id]
+            );
             # Notification
 
             $message = "Deposit successfully";
@@ -3696,28 +3561,14 @@ class ApiController extends Controller
         #   Notification
         # ===========================================================================
         if($result):
-            $notification_title        =   'Win amount successfully tranferred to game wallet.';
-            $notification_body        =   'Win Amount ( ₹'.$amount.' ) successfully tranferred to game wallet.';
-            $notification_type        =   'transfer_win_to_game_amount';
-
-            $fcm_data  =  (object)
-            [
-                'title'                 => $notification_title,
-                'body'                  => $notification_body,
-                'notification_type'     => $notification_type,
-                'fcm_device_token'      =>  $user->fcm_device_token,
-            ];
-
-            fcm()->send($fcm_data);
-
-            Notification::create([
-                'user_ids'              => $user->id,
-                'title'                 => $notification_title,
-                'content'               => $notification_body,
-                'notification_type'     => $notification_type,
-            ]);
-
-         
+            safe_notify(
+                $user->fcm_device_token,
+                'Win amount successfully tranferred to game wallet.',
+                'Win Amount ( ₹'.$amount.' ) successfully tranferred to game wallet.',
+                'transfer_win_to_game_amount',
+                $user->id,
+                ['user_id' => $user->id]
+            );
         endif;
             # Notification
 
@@ -3835,16 +3686,14 @@ class ApiController extends Controller
                 'status' => 1,
             ]);
 
-            $title = 'Withdrawal Successfully';
-            $body  = 'Amount withdrawal successfully.';
-            fcm()->send((object) [
-                'title' => $title, 'body' => $body, 'notification_type' => 'withdrawal',
-                'fcm_device_token' => $targetUser->fcm_device_token,
-            ]);
-            Notification::create([
-                'user_ids' => $targetUser->id, 'title' => $title,
-                'content' => $body, 'notification_type' => 'withdrawal',
-            ]);
+            safe_notify(
+                optional($targetUser)->fcm_device_token,
+                'Withdrawal Successfully',
+                'Amount withdrawal successfully.',
+                'withdrawal',
+                optional($targetUser)->id,
+                ['transaction_id' => $transaction->id]
+            );
 
             $message = 'Withdrawal approved successfully';
         } else {
@@ -3863,16 +3712,14 @@ class ApiController extends Controller
                 'status'                    => 2,
             ]);
 
-            $title = 'Withdrawal Rejected';
-            $body  = 'Your withdrawal request was rejected. Reason: ' . $remark;
-            fcm()->send((object) [
-                'title' => $title, 'body' => $body, 'notification_type' => 'withdrawal',
-                'fcm_device_token' => $targetUser->fcm_device_token,
-            ]);
-            Notification::create([
-                'user_ids' => $targetUser->id, 'title' => $title,
-                'content' => $body, 'notification_type' => 'withdrawal',
-            ]);
+            safe_notify(
+                optional($targetUser)->fcm_device_token,
+                'Withdrawal Rejected',
+                'Your withdrawal request was rejected. Reason: ' . $remark,
+                'withdrawal',
+                optional($targetUser)->id,
+                ['transaction_id' => $transaction->id]
+            );
 
             $message = 'Withdrawal rejected and amount refunded';
         }

@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\GameChallenge\Wallet;
-use App\Models\Notification\Notification;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -84,27 +83,13 @@ class RegistrationWelcomeBonusService
         $title = 'Welcome bonus credited';
         $body = "₹{$formatted} has been added to your game wallet for joining Ludo Shree.";
 
-        try {
-            if (!empty($user->fcm_device_token)) {
-                fcm()->send((object) [
-                    'title' => $title,
-                    'body' => $body,
-                    'notification_type' => 'credit',
-                    'fcm_device_token' => $user->fcm_device_token,
-                ]);
-            }
-        } catch (\Throwable $e) {
-            Log::warning('FCM failed for registration welcome bonus', [
-                'user_id' => $user->id,
-                'error' => $e->getMessage(),
-            ]);
-        }
-
-        Notification::create([
-            'user_ids' => $user->id,
-            'title' => $title,
-            'content' => $body,
-            'notification_type' => 'credit',
-        ]);
+        safe_notify(
+            $user->fcm_device_token,
+            $title,
+            $body,
+            'credit',
+            $user->id,
+            ['user_id' => $user->id, 'context' => 'welcome_bonus']
+        );
     }
 }
