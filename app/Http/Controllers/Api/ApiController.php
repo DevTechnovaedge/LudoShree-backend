@@ -23,6 +23,7 @@ use App\Models\ReferCodeRequest;
 use App\Services\GameChallengeLkApiSubmitResolver;
 use App\Services\GameChallengeStakeRefundService;
 use App\Services\GameChallengeWaitingDismissService;
+use App\Services\King\KingChallengeGateway;
 use App\Services\LkGameApiService;
 use App\Services\RegistrationWelcomeBonusService;
 use App\Http\Resources\UserResource;
@@ -962,6 +963,21 @@ class ApiController extends Controller
                     ]);
                 }
 
+                # King (Daddy King) synced table: the join must be confirmed by
+                # the King server FIRST so two platforms can never take the same
+                # table. Wallet is debited only after confirmation.
+                if ($game_challenge->isKingLinked()) {
+                    $kingResponse = app(KingChallengeGateway::class)->acceptViaKing($game_challenge, $user);
+
+                    if ($kingResponse !== null) {
+                        event(new DemoEvent(''));
+
+                        return response()->json($kingResponse);
+                    }
+                    // null = King daemon offline + purely local table: continue
+                    // with the normal local accept below.
+                }
+
                 if (GameChallenge::runningForUser($game_challenge->challenger_id)->exists()) {
                     unlock_game_challenge($game_challenge);
 
@@ -1490,11 +1506,15 @@ class ApiController extends Controller
                     return response()->json(['status' => false, 'message' => 'Roomcode not available']);
                 endif;
 
-                $lkSubmit = $this->tryLkOfficialResultSettlement($game_challenge, $user);
-                if ($lkSubmit !== null) {
-                    unlock_game_challenge($game_challenge);
+                # King cross-platform games are settled via the King network
+                # (ResultUpdateRequest), not the LK auto-resolver.
+                if (! $game_challenge->isKingLinked()) {
+                    $lkSubmit = $this->tryLkOfficialResultSettlement($game_challenge, $user);
+                    if ($lkSubmit !== null) {
+                        unlock_game_challenge($game_challenge);
 
-                    return $lkSubmit;
+                        return $lkSubmit;
+                    }
                 }
 
                 # ===========================================================================
@@ -1760,11 +1780,14 @@ class ApiController extends Controller
                     return response()->json(['status' => false, 'message' => 'Roomcode not available']);
                 endif;
 
-                $lkSubmitLoser = $this->tryLkOfficialResultSettlement($game_challenge, $user);
-                if ($lkSubmitLoser !== null) {
-                    unlock_game_challenge($game_challenge);
+                # King cross-platform games are settled via the King network.
+                if (! $game_challenge->isKingLinked()) {
+                    $lkSubmitLoser = $this->tryLkOfficialResultSettlement($game_challenge, $user);
+                    if ($lkSubmitLoser !== null) {
+                        unlock_game_challenge($game_challenge);
 
-                    return $lkSubmitLoser;
+                        return $lkSubmitLoser;
+                    }
                 }
 
                 # ===========================================================================
@@ -1910,6 +1933,10 @@ class ApiController extends Controller
                     #   Wallet
                     # ===========================================================================
                     $opponent_user              =   User::find($game_challenge->opponent_id);
+
+                    # King ghost opponents are paid on their OWN platform - never here.
+                    if (! is_king_ghost_user($opponent_user)):
+
                     $win_amount                 =   $game_challenge->paid_amount;
                     $total_balance              =   $opponent_user->win_wallet_amount + $win_amount;
 
@@ -1952,6 +1979,9 @@ class ApiController extends Controller
                         'notification_type'     => $notification_type,
                     ]);
                 # Notification
+
+                    endif;
+                    # End King ghost opponent guard
 
                 elseif ($user->id == $game_challenge->opponent_id):
                     $status = 4;
@@ -2041,6 +2071,10 @@ class ApiController extends Controller
                     #   Wallet
                     # ===========================================================================
                     $challenger_user            =   User::find($game_challenge->challenger_id);
+
+                    # King ghost challengers are paid on their OWN platform - never here.
+                    if (! is_king_ghost_user($challenger_user)):
+
                     $win_amount                 =   $game_challenge->paid_amount;
                     $total_balance              =   $challenger_user->win_wallet_amount + $win_amount;
 
@@ -2085,6 +2119,9 @@ class ApiController extends Controller
                         'notification_type'     => $notification_type,
                     ]);
                 # Notification
+
+                    endif;
+                    # End King ghost challenger guard
 
                 # ===========================================================================
                 #   End Notification
@@ -2226,6 +2263,14 @@ class ApiController extends Controller
             Wallet::create($wallet_data);
         endif;
 
+        # King (Daddy King) sync hook: only inserts king_outbox rows (fast DB
+        # writes) - the king:listen daemon does all network communication.
+        try {
+            app(KingChallengeGateway::class)->afterLocalChallengeAction((string) request()->type, $game_challenge, $user);
+        } catch (\Throwable $kingHookError) {
+            Log::error('[King] challenge hook failed', ['error' => $kingHookError->getMessage()]);
+        }
+
         event(new DemoEvent(''));
         unlock_game_challenge($game_challenge);
         return response()->json($arr);
@@ -2265,7 +2310,9 @@ class ApiController extends Controller
             'opponent_id',
             'challenger_status',
             'opponent_status',
-            'status'
+            'status',
+            'game_source',
+            'king_table_id'
         );
 
         $userId = $this->user()->id;
@@ -2342,7 +2389,9 @@ class ApiController extends Controller
             'opponent_id',
             'challenger_status',
             'opponent_status',
-            'status'
+            'status',
+            'game_source',
+            'king_table_id'
         )->where(function ($q) use ($userId) {
             $q->where('challenger_id', $userId)->orWhere('opponent_id', $userId);
         });

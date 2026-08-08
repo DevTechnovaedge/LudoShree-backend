@@ -489,7 +489,15 @@ class GameChallengeController extends Controller
         # 
 
         unlock_game_challenge($game_challenge);
-        
+
+        # King (Daddy King) sync: report admin decision to the network
+        # (only queues a DB row - the daemon sends it).
+        try {
+            app(\App\Services\King\KingChallengeGateway::class)->afterAdminAction($game_challenge);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('[King] admin result hook failed', ['error' => $e->getMessage()]);
+        }
+
         $arr                =   ['status' => true, 'message' => 'Successfully challenge updated'];
 
         return response()->json($arr);
@@ -576,6 +584,17 @@ class GameChallengeController extends Controller
                 'status'                    =>  false,
                 'message'                   =>  $validator->errors()->first()
             ]);
+        }
+
+        # King (Daddy King) sync: remove a waiting synced table from the
+        # network before soft-deleting it locally.
+        try {
+            $king_challenge = $this->eloquentModel()->whereUid($game_id)->first();
+            if ($king_challenge && $king_challenge->isKingLinked() && ! $king_challenge->opponent_id) {
+                app(\App\Services\King\KingOutboxService::class)->enqueueDeleteTable($king_challenge);
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('[King] admin delete hook failed', ['error' => $e->getMessage()]);
         }
 
         # Delete

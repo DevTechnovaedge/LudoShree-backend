@@ -63,8 +63,21 @@ class GameChallenge extends Model
                                 'ludo_king_game_id',
                                 'ludo_king_result_details',
 
+                                'game_source',
+                                'king_table_id',
+                                'king_sync_status',
+
                                 'is_lock'
                             ];
+
+    /**
+     * Linked to a table on the Daddy King network (either pushed by us or
+     * originated remotely).
+     */
+    public function isKingLinked(): bool
+    {
+        return ! empty($this->king_table_id) || $this->game_source === 'daddy_king';
+    }
 
   
     public function getCreatedAtAttribute($val){

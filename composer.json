@@ -16,6 +16,7 @@
         "livewire/volt": "^1.6",
         "paragonie/sodium_compat": "^1.21",
         "pusher/pusher-php-server": "^7.3",
+        "ratchet/pawl": "^0.4.3",
         "yajra/laravel-datatables": "9"
     },
     "require-dev": {

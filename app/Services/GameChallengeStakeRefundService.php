@@ -33,6 +33,13 @@ class GameChallengeStakeRefundService
             return 0.0;
         }
 
+        // King (Daddy King) ghost players never pay stakes locally, so they
+        // must never receive refunds (the fallback below would otherwise
+        // credit challenger_amount to a ghost that has no debit rows).
+        if ((int) ($user->is_king_player ?? 0) === 1) {
+            return 0.0;
+        }
+
         $gameChallenge = GameChallenge::query()->lockForUpdate()->find($gameChallengeId);
         if (! $gameChallenge) {
             return 0.0;

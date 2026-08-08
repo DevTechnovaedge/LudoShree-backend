@@ -34,6 +34,12 @@ class GameChallengeWinnerPayoutService
         $game_challenge->opponent_status = 2;
         $game_challenge->status = 4;
 
+        // King ghost winner: statuses only - the payout happens on the
+        // player's own platform (Daddy King network rule).
+        if (is_king_ghost_user($challenger)) {
+            return;
+        }
+
         Wallet::create([
             'user_id' => $game_challenge->challenger_id,
             'game_challenge_id' => $game_challenge->id,
@@ -148,6 +154,12 @@ class GameChallengeWinnerPayoutService
         $game_challenge->opponent_status = 1;
         $game_challenge->challenger_status = 2;
         $game_challenge->status = 4;
+
+        // King ghost winner: statuses only - the payout happens on the
+        // player's own platform (Daddy King network rule).
+        if (is_king_ghost_user($opponent)) {
+            return;
+        }
 
         Wallet::create([
             'user_id' => $game_challenge->opponent_id,

@@ -192,6 +192,17 @@
                 @endcan
                 <!-- End Pending Game Manage -->
 
+                <!-- King Sync (Daddy King) -->
+                @can('admin')
+                <li class="nav-item {{ request()->is('admin/king-sync*') ? 'active' : '' }}">
+                    <a href="{{ url('admin/king-sync') }}" class="nav-link">
+                        <i class="fas fa-crown nav-icon"></i>
+                        <p>King Sync (DK)</p>
+                    </a>
+                </li>
+                @endcan
+                <!-- End King Sync -->
+
                 <!-- Wallet Management -->
                 @can('permissions', ['game_credit_and_debit', 'view'], ['win_credit_and_debit', 'view'], ['game_ledger', 'view'])
                 <li class="nav-item {{ ( request()->is('admin/game-credit-and-debit') || request()->is('admin/win-credit-and-debit') || request()->is('admin/game-ledger') ) ? ' menu-is-opening menu-open ' : '' }}">

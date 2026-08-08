@@ -101,6 +101,11 @@ Route::group(['as' => 'admin::', 'middleware' => 'auth:admin'], function () {
 	Route::post("wallet-transaction-process", [WalletController::class, 'wallet_transaction_process']);
 	Route::post("update-game-challenge-result", [GameChallengeController::class, 'update_game_challenge_result']);
 	Route::post("delete-game-challenge", [GameChallengeController::class, 'delete_game_challenge']);
+
+	# King (Daddy King) WebSocket sync monitor
+	Route::get("king-sync", [App\Http\Controllers\Admin\KingController::class, 'index']);
+	Route::post("king-sync/retry-outbox", [App\Http\Controllers\Admin\KingController::class, 'retryOutbox']);
+	Route::post("king-sync/toggle-pause", [App\Http\Controllers\Admin\KingController::class, 'togglePause']);
 	
 	# Commissions
 	Route::get("refer-commissions", [ CommissionController::class, 'index' ]);

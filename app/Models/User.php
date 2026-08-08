@@ -81,6 +81,8 @@ class User extends Authenticatable
         'aadhaar_card_details',
         'is_cashier',
         'registration_bonus_pending',
+        'is_king_player',
+        'king_player_id',
     ];
 
     protected $hidden = [
@@ -378,6 +380,16 @@ class User extends Authenticatable
 
     public function wallet(){
         return $this->hasMany(Wallet::class, 'user_id');
+    }
+
+    /**
+     * Proxy account mirroring a player from the Daddy King network.
+     * Ghost users never hold real money - stakes/payouts are handled on
+     * the player's own platform.
+     */
+    public function isKingGhost(): bool
+    {
+        return (int) ($this->is_king_player ?? 0) === 1;
     }
 
 }

@@ -46,6 +46,14 @@ class GameChallengeWaitingDismissService
                     $gameChallenge->challenger_remark = 'Auto-closed: another challenge was accepted';
                 }
                 $gameChallenge->save();
+
+                // Table was pushed to the King (Daddy King) network - remove
+                // it there too (queued, no network call here).
+                try {
+                    app(\App\Services\King\KingChallengeGateway::class)->afterWaitingChallengeClosed($gameChallenge);
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::error('[King] dismiss hook failed', ['error' => $e->getMessage()]);
+                }
             }
         });
     }

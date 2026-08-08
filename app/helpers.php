@@ -506,3 +506,58 @@ if(!function_exists('sms')){
       $game_challenege->is_lock  = 0;
       $game_challenege->saveQuietly();
     }
+
+    # King (Daddy King) cross-platform sync
+
+    if (!function_exists('king_enabled')) {
+      /**
+       * Integration master switch: env flag + admin pause toggle.
+       */
+      function king_enabled(): bool
+      {
+        if (!config('king.enabled')) {
+          return false;
+        }
+
+        try {
+          return !cache()->get('king:paused', false);
+        } catch (\Throwable $e) {
+          return true;
+        }
+      }
+    }
+
+    if (!function_exists('king_ws_alive')) {
+      /**
+       * True when the king:listen daemon reported activity recently.
+       */
+      function king_ws_alive(): bool
+      {
+        try {
+          $lastAlive = (int) cache()->get('king:alive_at', 0);
+        } catch (\Throwable $e) {
+          return false;
+        }
+
+        return $lastAlive > 0 && (time() - $lastAlive) <= (int) config('king.alive_ttl', 30);
+      }
+    }
+
+    if (!function_exists('is_king_ghost_user')) {
+      /**
+       * @param  \App\Models\User|int|null  $user
+       */
+      function is_king_ghost_user($user): bool
+      {
+        if (!$user) {
+          return false;
+        }
+
+        if (is_numeric($user)) {
+          $user = \App\Models\User::find($user);
+        }
+
+        return $user ? ((int) ($user->is_king_player ?? 0) === 1) : false;
+      }
+    }
+    # End King
