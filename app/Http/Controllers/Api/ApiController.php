@@ -1247,26 +1247,33 @@ class ApiController extends Controller
                 # Handle Game Challenge Data
                 # ===========================================================================
                 if ($recipient) {
-                   
-
                     $notification_title = 'Challenge cancel';
                     $notification_body = 'Game Challenge cancel ' . $game_challenge->uid;
                     $notification_type = 'cancel';
 
-                    // Send Notification
-                    fcm()->send((object)[
-                        'title' => $notification_title,
-                        'body' => $notification_body,
-                        'notification_type' => $notification_type,
-                        'fcm_device_token' => $recipient->fcm_device_token,
-                    ]);
+                    // Never let push/notification failures block cancel.
+                    try {
+                        if (! empty($recipient->fcm_device_token)) {
+                            fcm()->send((object) [
+                                'title' => $notification_title,
+                                'body' => $notification_body,
+                                'notification_type' => $notification_type,
+                                'fcm_device_token' => $recipient->fcm_device_token,
+                            ]);
+                        }
 
-                    Notification::create([
-                        'user_ids' => $user->id,
-                        'title' => $notification_title,
-                        'content' => $notification_body,
-                        'notification_type' => $notification_type,
-                    ]);
+                        Notification::create([
+                            'user_ids' => $user->id,
+                            'title' => $notification_title,
+                            'content' => $notification_body,
+                            'notification_type' => $notification_type,
+                        ]);
+                    } catch (\Throwable $notificationError) {
+                        Log::warning('[challenge] cancel notification failed', [
+                            'game_challenge_id' => $game_challenge->id,
+                            'error' => $notificationError->getMessage(),
+                        ]);
+                    }
                 }
 
                   # Waiting game (no opponent): refund creator stake immediately

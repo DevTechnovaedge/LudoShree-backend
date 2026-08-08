@@ -2,93 +2,97 @@
 
 namespace App\Services;
 
-use Exception;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class FcmNotificationService
 {
-
-    function send($data)
+    public function send($data)
     {
-        ini_set('max_execution_time', -1); // 60 seconds
+        ini_set('max_execution_time', -1);
 
-        $title                              =   $data->title;
-        $body                               =   $data->body;
-        $notification_type                  =   $data->notification_type;
-        $fcm_device_token                   =   $data->fcm_device_token ?? '';
+        $title = $data->title ?? '';
+        $body = $data->body ?? '';
+        $notification_type = $data->notification_type ?? '';
+        $fcm_device_token = $data->fcm_device_token ?? '';
         $topic = $data->topic ?? '';
 
-        // Path to the service account JSON file
-
-        // Path to the service account JSON file
-        $serviceAccountPath = base_path(env('FCM_SERVICE_ACCOUNT_PATH'));
-
-        if (!file_exists($serviceAccountPath)) {
-            throw new Exception("Service account file not found: " . $serviceAccountPath);
+        if (! $topic && ! $fcm_device_token) {
+            return null;
         }
 
-        // The URL to send FCM requests
+        $serviceAccountPath = $this->resolveServiceAccountPath();
+        if (! $serviceAccountPath) {
+            return null;
+        }
 
-          // Prepare the notification payload
-      // Prepare the notification payload for v1 API
-      
-                $custom_sound         = "custom_tone.mp3";
-                $notification_type == 'instant';
-            // if($notification_type == 'instant' || $notification_type == 'schedule' || $notification_type == 'daily'):
-            //     $custom_sound         = "custom_tone";
-            // endif;
-            
-            $token_or_topic = $topic ? 'topic' : 'token';
+        $custom_sound = 'custom_tone.mp3';
+        $token_or_topic = $topic ? 'topic' : 'token';
 
-            $message = [
-                'message' => [
-                    $token_or_topic => $topic ? $topic : $fcm_device_token,
-                    // 'registration_ids' => $fcm_device_token,
-                    'notification' =>[
-                                            'title' => $title,
-                                            'body' => $body,
-                                        ],
-                    'data' => [
-                        'click_action' => 'FLUTTER_NOTIFICATION_CLICK',
-                        'id' => '1',
-                        'status' => 'done',
-                        'type' => $notification_type
-                    ],
-                    'android' => [
-                        "priority" => "high",
-                      'notification' => [
-                          "channel_id" => "high_importance_channel",
-                          'sound' => $custom_sound,  // Custom sound for Android
-                          // 'image' => $image,
-                      ],
-                  ],
+        $message = [
+            'message' => [
+                $token_or_topic => $topic ?: $fcm_device_token,
+                'notification' => [
+                    'title' => $title,
+                    'body' => $body,
                 ],
-            ];
-            
+                'data' => [
+                    'click_action' => 'FLUTTER_NOTIFICATION_CLICK',
+                    'id' => '1',
+                    'status' => 'done',
+                    'type' => $notification_type,
+                ],
+                'android' => [
+                    'priority' => 'high',
+                    'notification' => [
+                        'channel_id' => 'high_importance_channel',
+                        'sound' => $custom_sound,
+                    ],
+                ],
+            ],
+        ];
 
-            // Get the OAuth 2.0 token using the JSON file
+        try {
             $access_token = $this->getAccessToken($serviceAccountPath);
+            if (! $access_token) {
+                return null;
+            }
 
-            $fcm_project_id             =   env('FCM_PROJECT_ID');
-            
-            $url = "https://fcm.googleapis.com/v1/projects/$fcm_project_id/messages:send";
+            $fcm_project_id = (string) config('services.fcm.project_id', '');
+            if ($fcm_project_id === '') {
+                Log::warning('[FCM] FCM_PROJECT_ID missing from config');
 
-            // Sending the payload to FCM
-            $response = Http::withHeaders([
-                'Authorization' => 'Bearer ' . $access_token,
+                return null;
+            }
+
+            $url = "https://fcm.googleapis.com/v1/projects/{$fcm_project_id}/messages:send";
+
+            return Http::withHeaders([
+                'Authorization' => 'Bearer '.$access_token,
                 'Content-Type' => 'application/json',
             ])->post($url, $message);
+        } catch (\Throwable $e) {
+            Log::warning('[FCM] send failed', ['error' => $e->getMessage()]);
 
-
-        return $response;
+            return null;
+        }
     }
 
-    function getAccessToken($serviceAccountPath)
+    public function getAccessToken($serviceAccountPath)
     {
-        // Load the service account JSON file
-        $jsonKey = json_decode(file_get_contents($serviceAccountPath), true);
+        if (! is_string($serviceAccountPath) || ! is_file($serviceAccountPath)) {
+            Log::warning('[FCM] service account path is not a file', ['path' => $serviceAccountPath]);
 
-        // Prepare the JWT header and claim set
+            return null;
+        }
+
+        $jsonKey = json_decode((string) file_get_contents($serviceAccountPath), true);
+        if (! is_array($jsonKey) || empty($jsonKey['client_email']) || empty($jsonKey['private_key'])) {
+            Log::warning('[FCM] invalid service account JSON', ['path' => $serviceAccountPath]);
+
+            return null;
+        }
+
         $header = ['alg' => 'RS256', 'typ' => 'JWT'];
         $claimSet = [
             'iss' => $jsonKey['client_email'],
@@ -98,26 +102,21 @@ class FcmNotificationService
             'exp' => time() + 3600,
         ];
 
-        // Encode the header and claim set in Base64
         $jwtHeader = base64_encode(json_encode($header));
         $jwtClaimSet = base64_encode(json_encode($claimSet));
 
-        // Create the signature
-        $signingInput = $jwtHeader . '.' . $jwtClaimSet;
+        $signingInput = $jwtHeader.'.'.$jwtClaimSet;
         $signature = '';
         openssl_sign($signingInput, $signature, $jsonKey['private_key'], 'SHA256');
         $jwtSignature = base64_encode($signature);
 
-        // Generate the JWT token
-        $jwt = $jwtHeader . '.' . $jwtClaimSet . '.' . $jwtSignature;
+        $jwt = $jwtHeader.'.'.$jwtClaimSet.'.'.$jwtSignature;
 
-        // Prepare the POST data
         $postData = [
             'grant_type' => 'urn:ietf:params:oauth:grant-type:jwt-bearer',
             'assertion' => $jwt,
         ];
 
-        // Send the request to get the access token
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, 'https://oauth2.googleapis.com/token');
         curl_setopt($ch, CURLOPT_POST, true);
@@ -127,8 +126,38 @@ class FcmNotificationService
         $response = curl_exec($ch);
         curl_close($ch);
 
-        // Decode and return the access token
-        $responseData = json_decode($response, true);
-        return $responseData['access_token'];
+        $responseData = json_decode((string) $response, true);
+
+        return $responseData['access_token'] ?? null;
+    }
+
+    private function resolveServiceAccountPath(): ?string
+    {
+        $relative = trim((string) config('services.fcm.service_account_path', ''));
+        if ($relative === '') {
+            // Fallback for environments that still call env() before config cache.
+            $relative = trim((string) env('FCM_SERVICE_ACCOUNT_PATH', ''));
+        }
+
+        if ($relative === '') {
+            Log::warning('[FCM] FCM_SERVICE_ACCOUNT_PATH is empty');
+
+            return null;
+        }
+
+        $full = str_starts_with($relative, DIRECTORY_SEPARATOR)
+            ? $relative
+            : base_path($relative);
+
+        if (! is_file($full)) {
+            Log::warning('[FCM] service account file missing or not a file', [
+                'path' => $full,
+                'is_dir' => is_dir($full),
+            ]);
+
+            return null;
+        }
+
+        return $full;
     }
 }

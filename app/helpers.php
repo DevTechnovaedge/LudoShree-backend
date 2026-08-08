@@ -141,7 +141,9 @@ if (!function_exists('uploadFile')) {
       $file_name                      =   trim(str_replace('_','-', strtolower($img->getClientOriginalName())));
       $path                           .=  '/';
 
-      Storage::disk('public')->put($path . $file_name, file_get_contents(request()->{$file}));
+      // Use UploadedFile contents — never file_get_contents(request()->field),
+      // which can resolve to a directory/path string and crash the request.
+      Storage::disk('public')->put($path . $file_name, $img->get());
     else :
       $file_name        = request()->{'old_' . $file};
 
