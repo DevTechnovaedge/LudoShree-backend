@@ -241,14 +241,14 @@ class KingListen extends Command
             });
         }
 
-        # Result-safety poll: the King server does not broadcast remote
-        # ResultUpdateRequest pushes, so while a cross-platform game is
-        # running (or waiting for our user's result) we poll the list to pick
-        # up the other platform's result. Idle = no polling at all.
-        $activePoll = (int) config('king.active_poll_interval', 15);
+        # Result-safety poll DISABLED by default: Daddy King currently closes
+        # the socket with 1000 Bye whenever we send GetKingTableListReq.
+        # They already push a list snapshot on JoinKingRoomRequest, and we
+        # apply realtime table pushes — so outbound list polling is unsafe.
+        $activePoll = (int) config('king.active_poll_interval', 0);
         if ($activePoll > 0 && $pollInterval <= 0) {
-            $this->timers[] = $loop->addPeriodicTimer(max(10, $activePoll), function () {
-                if (! $this->joinedRoom || $this->isPaused()) {
+            $this->timers[] = $loop->addPeriodicTimer(max(30, $activePoll), function () {
+                if (! $this->joinedRoom || ! $this->sessionReady || $this->isPaused()) {
                     return;
                 }
 
@@ -260,7 +260,7 @@ class KingListen extends Command
                 }, false);
 
                 if ($hasActiveKingGame) {
-                    $this->send('GetKingTableListReq', []);
+                    $this->logSys('info', 'Active-game list poll skipped (GetKingTableListReq causes remote Bye)');
                 }
             });
         }
@@ -701,6 +701,13 @@ class KingListen extends Command
     private function send(string $uri, array $param): void
     {
         if (! $this->conn) {
+            return;
+        }
+
+        // Hard block — King closes with 1000 Bye on outbound list requests.
+        if ($uri === 'GetKingTableListReq') {
+            $this->logSys('warning', 'Blocked outbound GetKingTableListReq (remote Bye kick)');
+
             return;
         }
 
