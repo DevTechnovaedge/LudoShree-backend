@@ -5,7 +5,7 @@ namespace App\Events;
 use App\Models\GameChallenge\GameChallenge;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
-use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
@@ -13,7 +13,7 @@ use Illuminate\Queue\SerializesModels;
  * Pushes challenge snapshot to game-table / challenge clients.
  * Clients patch local state — no per-event REST refetch required.
  */
-class GameChallengeChanged implements ShouldBroadcastNow
+class GameChallengeChanged implements ShouldBroadcast
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 

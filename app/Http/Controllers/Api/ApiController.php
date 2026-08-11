@@ -95,6 +95,14 @@ class ApiController extends Controller
           return GameChallenge::runningForUser($user->id)->exists();
       }
 
+      /** Waiting-table cancel has no accept race — skip DB lock round-trip. */
+      private function shouldSkipChallengeLock(string $type, GameChallenge $challenge): bool
+      {
+          return $type === 'cancel'
+              && (int) $challenge->status === 0
+              && empty($challenge->opponent_id);
+      }
+
       /**
        * App users that should receive cashier withdrawal FCM (explicit flag + admin "Cashier" role mobile match).
        *
@@ -764,6 +772,7 @@ class ApiController extends Controller
 
         $game_challenge         =   null;
         $data                   =   [];
+        $challengeLocked        =   false;
 
         # Validation
 
@@ -804,7 +813,10 @@ class ApiController extends Controller
                 return response()->json(['status' =>  false, 'message' => 'Game Status updating please wait.....']);
             endif;
 
-            lock_game_challenge($game_challenge);
+            if (! $this->shouldSkipChallengeLock((string) request()->type, $game_challenge)) {
+                lock_game_challenge($game_challenge);
+                $challengeLocked = true;
+            }
 
         endif;
 
@@ -2066,60 +2078,50 @@ class ApiController extends Controller
                     $game_wallet_amount = (float) $lockedUser->game_wallet_amount;
                     $win_wallet_amount = (float) $lockedUser->win_wallet_amount;
                     $remaining_challenge_amount = 0;
+                    $runningTotal = $game_wallet_amount + $win_wallet_amount;
+
+                    $recordDebit = function (string $walletType, float $debitAmount, float $newBalance) use (
+                        &$runningTotal,
+                        $lockedUser,
+                        $game_challenge
+                    ): void {
+                        Wallet::withoutEvents(function () use ($walletType, $debitAmount, $newBalance, $runningTotal, $lockedUser, $game_challenge) {
+                            Wallet::create([
+                                'user_id' => $lockedUser->id,
+                                'game_challenge_id' => $game_challenge->id,
+                                'type' => 'debit',
+                                'wallet_type' => $walletType,
+                                'remark' => "Challenge created. Ref: $game_challenge->uid",
+                                'amount' => $debitAmount,
+                                'total_balance' => $newBalance,
+                                'status' => 0,
+                                'win_and_game_total_amount' => round($runningTotal - $debitAmount, 2),
+                            ]);
+                        });
+                        $runningTotal -= $debitAmount;
+                    };
 
                     if ($game_wallet_amount >= $amount) {
                         $new_game_wallet_balance = $game_wallet_amount - $amount;
-
-                        Wallet::create([
-                            'user_id' => $lockedUser->id,
-                            'game_challenge_id' => $game_challenge->id,
-                            'type' => 'debit',
-                            'wallet_type' => 'game',
-                            'remark' => "Challenge created. Ref: $game_challenge->uid",
-                            'amount' => $amount,
-                            'total_balance' => $new_game_wallet_balance,
-                            'status' => 0,
-                        ]);
-
+                        $recordDebit('game', (float) $amount, $new_game_wallet_balance);
                         $lockedUser->game_wallet_amount = $new_game_wallet_balance;
                     } else {
                         $remaining_challenge_amount = $amount - $game_wallet_amount;
                         $new_game_wallet_balance = 0;
 
                         if ($game_wallet_amount > 0) {
-                            Wallet::create([
-                                'user_id' => $lockedUser->id,
-                                'game_challenge_id' => $game_challenge->id,
-                                'type' => 'debit',
-                                'wallet_type' => 'game',
-                                'remark' => "Challenge created. Ref: $game_challenge->uid",
-                                'amount' => $game_wallet_amount,
-                                'total_balance' => $new_game_wallet_balance,
-                                'status' => 0,
-                            ]);
-
+                            $recordDebit('game', $game_wallet_amount, $new_game_wallet_balance);
                             $lockedUser->game_wallet_amount = $new_game_wallet_balance;
                         }
 
                         if ($win_wallet_amount >= $remaining_challenge_amount && $remaining_challenge_amount > 0) {
                             $new_win_wallet_balance = $win_wallet_amount - $remaining_challenge_amount;
-
-                            Wallet::create([
-                                'user_id' => $lockedUser->id,
-                                'game_challenge_id' => $game_challenge->id,
-                                'type' => 'debit',
-                                'wallet_type' => 'win',
-                                'remark' => "Challenge created. Ref: $game_challenge->uid",
-                                'amount' => $remaining_challenge_amount,
-                                'total_balance' => $new_win_wallet_balance,
-                                'status' => 0,
-                            ]);
-
+                            $recordDebit('win', (float) $remaining_challenge_amount, $new_win_wallet_balance);
                             $lockedUser->win_wallet_amount = $new_win_wallet_balance;
                         }
                     }
 
-                    $lockedUser->save();
+                    $lockedUser->saveQuietly();
                     $user->game_wallet_amount = $lockedUser->game_wallet_amount;
                     $user->win_wallet_amount = $lockedUser->win_wallet_amount;
                 });
@@ -2139,12 +2141,15 @@ class ApiController extends Controller
             #   Response
             # ===========================================================================
 
+            if (request()->type === 'cancel') {
+                $user->refresh();
+            }
+
             $arr                    =   [
                 'status'    => true,
                 'message'   => $message,
-                'rules'     =>  site_setting()->rules,
                 'data'      => new GameChallengeResource($game_challenge),
-                'user'      => new UserResource($user)
+                'user'      => new UserResource($user),
             ];
         # ===========================================================================
         #   End Response
@@ -2179,7 +2184,9 @@ class ApiController extends Controller
             })->afterResponse();
         }
 
-        unlock_game_challenge($game_challenge);
+        if ($challengeLocked && $game_challenge) {
+            unlock_game_challenge($game_challenge);
+        }
         return response()->json($arr);
         } catch (Exception $e) {
             Log::error('[challenge] unhandled exception', [
@@ -2223,10 +2230,16 @@ class ApiController extends Controller
         );
 
         $userId = $this->user()->id;
+        $relations = [
+            'challenger:id,uid,name,profile_url',
+            'opponent:id,uid,name,profile_url',
+            'game_type:id,name',
+        ];
 
         # My Challenges (active only: user is challenger or opponent, not terminal)
         # Terminal statuses: 2 Cancel, 4 Complete, 6 Suspended, 7 Cancelled
         $my_challenges          =   $game_challenge->clone()
+                  ->with($relations)
                   ->where(function ($q) use ($userId) {
                       $q->where('challenger_id', $userId)->orWhere('opponent_id', $userId);
                   })
@@ -2245,6 +2258,7 @@ class ApiController extends Controller
 
         # Game Challenges
         $game_challenges        =   $game_challenge->clone()
+            ->with($relations)
             ->whereNotIn('id', $my_challenges_ids)
             ->liveChallenges($this->user()->id)
             ->orderByRaw("CASE WHEN status = 0 THEN 0 ELSE 1 END ASC") // Status 0 comes first

@@ -54,7 +54,7 @@ class GameChallengeStakeRefundService
             $totalRefunded = $this->refundFallbackFromChallengeAmount($user, $gameChallenge, $userId, $creditRemark, $returnedByWallet);
         }
 
-        $user->save();
+        $user->saveQuietly();
 
         if ($totalRefunded > 0) {
             $logPayload = [
@@ -201,16 +201,22 @@ class GameChallengeStakeRefundService
             $balance = $user->game_wallet_amount;
         }
 
-        Wallet::create([
-            'user_id' => $userId,
-            'game_challenge_id' => $gameChallengeId,
-            'type' => 'credit',
-            'wallet_type' => $walletType,
-            'remark' => $creditRemark,
-            'amount' => $toRefund,
-            'total_balance' => $balance,
-            'status' => 1,
-        ]);
+        Wallet::withoutEvents(function () use ($userId, $gameChallengeId, $walletType, $toRefund, $creditRemark, $user, &$balance) {
+            Wallet::create([
+                'user_id' => $userId,
+                'game_challenge_id' => $gameChallengeId,
+                'type' => 'credit',
+                'wallet_type' => $walletType,
+                'remark' => $creditRemark,
+                'amount' => $toRefund,
+                'total_balance' => $balance,
+                'status' => 1,
+                'win_and_game_total_amount' => round(
+                    (float) $user->game_wallet_amount + (float) $user->win_wallet_amount,
+                    2
+                ),
+            ]);
+        });
 
         return $toRefund;
     }

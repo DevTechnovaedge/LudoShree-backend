@@ -33,7 +33,7 @@ Route::middleware('auth:api')->group(function () {
         Route::get('home', [ApiController::class, 'home']);
         // No throttle — clients may burst-refetch after websocket challenge.changed events.
         Route::get('game-table', [ApiController::class, 'game_table'])->withoutMiddleware(['throttle:api']);
-        Route::post('challenge', [ApiController::class, 'challenge']);
+        Route::post('challenge', [ApiController::class, 'challenge'])->withoutMiddleware(['throttle:api']);
         Route::get('wallet-history', [ApiController::class, 'wallet_history']);
         Route::get('notifications', [ApiController::class, 'notifications']);
         Route::get('my-challenges', [ApiController::class, 'my_challenges']);

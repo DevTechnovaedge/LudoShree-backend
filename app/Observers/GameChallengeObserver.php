@@ -49,7 +49,6 @@ class GameChallengeObserver
                 return;
             }
 
-            SafeBroadcast::demoEventPing();
             SafeBroadcast::event(GameChallengeChanged::fromModel($fresh, $action));
         };
 
