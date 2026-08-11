@@ -57,6 +57,8 @@ class KingListen extends Command
 
     private bool $initialTableListRequested = false;
 
+    private bool $sessionReady = false;
+
     /** @var \React\EventLoop\TimerInterface|null */
     private $reconnectTimer = null;
 
@@ -144,6 +146,7 @@ class KingListen extends Command
         $this->reconnectScheduled = false;
         $this->intentionalClose = false;
         $this->initialTableListRequested = false;
+        $this->sessionReady = false;
 
         // Replace any stale handle without scheduling another reconnect.
         if ($this->conn && $this->conn !== $conn) {
@@ -191,6 +194,7 @@ class KingListen extends Command
             $this->conn = null;
             $this->loggedIn = false;
             $this->joinedRoom = false;
+            $this->sessionReady = false;
             $this->connectInFlight = false;
             $this->intentionalClose = false;
             $this->cancelTimers();
@@ -395,13 +399,44 @@ class KingListen extends Command
 
         $this->initialTableListRequested = true;
 
-        Loop::get()->addTimer(3, function () {
-            if (! $this->conn || ! $this->joinedRoom) {
+        Loop::get()->addTimer(2, function () {
+            if (! $this->conn || ! $this->joinedRoom || ! $this->sessionReady) {
                 return;
             }
 
             $this->info('Syncing table list...');
             $this->send('GetKingTableListReq', []);
+        });
+    }
+
+    private function scheduleSessionReady(): void
+    {
+        // Expire the reconnect-storm backlog so we never flood King on join.
+        $this->db(function () {
+            $cutoff = now()->subHours(6);
+            $n = KingOutbox::query()
+                ->where('status', KingOutbox::STATUS_PENDING)
+                ->where('created_at', '<', $cutoff)
+                ->update([
+                    'status' => KingOutbox::STATUS_SKIPPED,
+                    'error' => 'Stale outbox skipped after reconnect storm',
+                ]);
+
+            if ($n > 0) {
+                KingEventLog::write('sys', '', 'warning', "Skipped {$n} stale pending outbox row(s) older than 6h");
+                $this->warn("Skipped {$n} stale pending outbox row(s)");
+            }
+        });
+
+        Loop::get()->addTimer(5, function () {
+            if (! $this->conn || ! $this->joinedRoom) {
+                return;
+            }
+
+            $this->sessionReady = true;
+            $this->info('Session ready — outbox unlocked');
+            $this->logSys('info', 'Session ready — outbox unlocked');
+            $this->scheduleInitialTableListSync();
         });
     }
 
@@ -456,11 +491,9 @@ class KingListen extends Command
             case 'JoinKingRoomRequest':
                 if (! $this->joinedRoom && ($param['status'] ?? false)) {
                     $this->joinedRoom = true;
-                    $this->info('Room joined. Waiting before table sync...');
-                    $this->logSys('info', 'Room joined — connection stable path');
-                    // Defer list fetch so King does not drop a brand-new session
-                    // that immediately requests the full table dump.
-                    $this->scheduleInitialTableListSync();
+                    $this->info('Room joined. Stabilizing session...');
+                    $this->logSys('info', 'Room joined — stabilizing before outbox/table sync');
+                    $this->scheduleSessionReady();
 
                     return;
                 }
@@ -520,7 +553,9 @@ class KingListen extends Command
 
     private function pumpOutbox(): void
     {
-        if (! $this->conn || ! $this->loggedIn || ! $this->joinedRoom || $this->inflight || $this->isPaused()) {
+        // Wait until the King session is stable — flooding stale outbox right
+        // after JoinKingRoomRequest makes their server drop us with 1000 Bye.
+        if (! $this->conn || ! $this->loggedIn || ! $this->joinedRoom || ! $this->sessionReady || $this->inflight || $this->isPaused()) {
             return;
         }
 
