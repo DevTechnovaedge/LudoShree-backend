@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\SiteSetting;
+use Illuminate\Support\Facades\Cache;
 
 class SiteSettingController extends Controller
 {
@@ -41,6 +42,7 @@ class SiteSettingController extends Controller
         $update_array = $request->all();
 
         $sitesetting->update($update_array);
+        Cache::forget('site_setting');
 
         return redirect()->route('admin::sitesettings.index')->with('back_msg', "Site Setting updated successfully.");
     }

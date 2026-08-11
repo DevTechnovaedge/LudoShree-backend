@@ -4,6 +4,7 @@ namespace App\Models\King;
 
 use App\Models\GameChallenge\GameChallenge;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Cache;
 
 class KingOutbox extends Model
 {
@@ -51,5 +52,29 @@ class KingOutbox extends Model
         $decoded = json_decode((string) $this->response, true);
 
         return is_array($decoded) ? $decoded : [];
+    }
+
+    /** Fast status signal for HTTP accept polling (avoids repeated DB reads). */
+    public static function signalStatus(int $outboxId, string $status, ?string $error = null): void
+    {
+        try {
+            Cache::put("king:outbox:{$outboxId}", [
+                'status' => $status,
+                'error' => $error,
+            ], now()->addMinutes(5));
+        } catch (\Throwable $e) {
+            // Non-critical.
+        }
+    }
+
+    public static function readStatusSignal(int $outboxId): ?array
+    {
+        try {
+            $value = Cache::get("king:outbox:{$outboxId}");
+
+            return is_array($value) ? $value : null;
+        } catch (\Throwable $e) {
+            return null;
+        }
     }
 }

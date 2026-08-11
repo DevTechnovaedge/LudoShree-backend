@@ -14,6 +14,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Number;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 
 use App\Models\Notification\Notification;
 use App\Services\FcmNotificationService;
@@ -105,38 +106,60 @@ if (!function_exists('safe_notify')) {
     string $type,
     $userIds = null,
     array $context = [],
-    ?string $topic = null
+    ?string $topic = null,
+    ?bool $defer = null
   ): void {
-    try {
-      if ($topic) {
-        safe_fcm_send([
-          'title' => $title,
-          'body' => $body,
-          'notification_type' => $type,
-          'topic' => $topic,
-        ]);
-      } elseif (! empty($fcmDeviceToken)) {
-        safe_fcm_send([
-          'title' => $title,
-          'body' => $body,
-          'notification_type' => $type,
-          'fcm_device_token' => $fcmDeviceToken,
-        ]);
-      }
+    $payload = [
+      'fcmDeviceToken' => $fcmDeviceToken,
+      'title' => $title,
+      'body' => $body,
+      'type' => $type,
+      'userIds' => $userIds,
+      'context' => $context,
+      'topic' => $topic,
+    ];
 
-      if ($userIds !== null && $userIds !== '' && $userIds !== []) {
-        Notification::create([
-          'user_ids' => is_array($userIds) ? implode(',', array_unique($userIds)) : (string) $userIds,
-          'title' => $title,
-          'content' => $body,
-          'notification_type' => $type,
-        ]);
+    $deliver = static function () use ($payload): void {
+      try {
+        if ($payload['topic']) {
+          safe_fcm_send([
+            'title' => $payload['title'],
+            'body' => $payload['body'],
+            'notification_type' => $payload['type'],
+            'topic' => $payload['topic'],
+          ]);
+        } elseif (! empty($payload['fcmDeviceToken'])) {
+          safe_fcm_send([
+            'title' => $payload['title'],
+            'body' => $payload['body'],
+            'notification_type' => $payload['type'],
+            'fcm_device_token' => $payload['fcmDeviceToken'],
+          ]);
+        }
+
+        $userIds = $payload['userIds'];
+        if ($userIds !== null && $userIds !== '' && $userIds !== []) {
+          Notification::create([
+            'user_ids' => is_array($userIds) ? implode(',', array_unique($userIds)) : (string) $userIds,
+            'title' => $payload['title'],
+            'content' => $payload['body'],
+            'notification_type' => $payload['type'],
+          ]);
+        }
+      } catch (\Throwable $e) {
+        Log::warning('[notify] delivery failed', array_merge($payload['context'], [
+          'type' => $payload['type'],
+          'error' => $e->getMessage(),
+        ]));
       }
-    } catch (\Throwable $e) {
-      Log::warning('[notify] delivery failed', array_merge($context, [
-        'type' => $type,
-        'error' => $e->getMessage(),
-      ]));
+    };
+
+    $shouldDefer = $defer ?? ! app()->runningInConsole();
+
+    if ($shouldDefer) {
+      dispatch($deliver)->afterResponse();
+    } else {
+      $deliver();
     }
   }
 }
@@ -149,7 +172,7 @@ if(!function_exists('HaodaPay')){
 
 if (!function_exists('game_commission_slot')) {
   function game_commission_slot(){
-    return GameCommissionSlot::first();
+    return Cache::remember('game_commission_slot', 300, fn () => GameCommissionSlot::first());
   }
 }
 
@@ -345,7 +368,7 @@ if (!function_exists('crul')) {
 if (!function_exists('site_setting')) {
   function site_setting()
   {
-    return SiteSetting::first();
+    return Cache::remember('site_setting', 300, fn () => SiteSetting::first());
   }
 }
 # End Site Settings

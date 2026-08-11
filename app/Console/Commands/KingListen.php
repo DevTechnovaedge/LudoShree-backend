@@ -358,6 +358,7 @@ class KingListen extends Command
                 }
 
                 $fresh->save();
+                KingOutbox::signalStatus((int) $fresh->id, (string) $fresh->status, $fresh->error);
             });
 
             $this->logSys('warning', "No response for {$row->event} #{$row->id} - reconnecting");
@@ -577,6 +578,7 @@ class KingListen extends Command
                 $row->status = KingOutbox::STATUS_SKIPPED;
                 $row->error = $wire['reason'] ?? null;
                 $row->save();
+                KingOutbox::signalStatus((int) $row->id, (string) $row->status, $row->error);
             });
 
             return;
@@ -662,6 +664,7 @@ class KingListen extends Command
             }
 
             $fresh->save();
+            KingOutbox::signalStatus((int) $fresh->id, (string) $fresh->status, $fresh->error);
         });
     }
 
@@ -691,6 +694,7 @@ class KingListen extends Command
             }
 
             $fresh->save();
+            KingOutbox::signalStatus((int) $fresh->id, (string) $fresh->status, $fresh->error);
         });
     }
 

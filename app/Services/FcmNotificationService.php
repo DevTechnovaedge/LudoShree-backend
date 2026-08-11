@@ -70,7 +70,7 @@ class FcmNotificationService
 
             $url = "https://fcm.googleapis.com/v1/projects/{$fcm_project_id}/messages:send";
 
-            return Http::withHeaders([
+            return Http::timeout(5)->withHeaders([
                 'Authorization' => 'Bearer '.$access_token,
                 'Content-Type' => 'application/json',
             ])->post($url, $message);
@@ -126,6 +126,8 @@ class FcmNotificationService
             curl_setopt($ch, CURLOPT_POST, true);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
             curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($postData));
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 5);
 
             $response = curl_exec($ch);
             curl_close($ch);

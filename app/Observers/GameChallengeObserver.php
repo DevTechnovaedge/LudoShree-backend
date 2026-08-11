@@ -42,7 +42,22 @@ class GameChallengeObserver
 
     private function broadcast(GameChallenge $record, string $action): void
     {
-        SafeBroadcast::event(new DemoEvent(''));
-        SafeBroadcast::event(GameChallengeChanged::fromModel($record, $action));
+        $challengeId = (int) $record->id;
+
+        $fire = function () use ($challengeId, $action): void {
+            $fresh = GameChallenge::with(['challenger', 'opponent', 'game_type'])->find($challengeId);
+            if (! $fresh) {
+                return;
+            }
+
+            SafeBroadcast::event(new DemoEvent(''));
+            SafeBroadcast::event(GameChallengeChanged::fromModel($fresh, $action));
+        };
+
+        if (app()->runningInConsole()) {
+            $fire();
+        } else {
+            dispatch($fire)->afterResponse();
+        }
     }
 }

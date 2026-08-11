@@ -960,8 +960,6 @@ class ApiController extends Controller
                     $kingResponse = app(KingChallengeGateway::class)->acceptViaKing($game_challenge, $user);
 
                     if ($kingResponse !== null) {
-                        event(new DemoEvent(''));
-
                         return response()->json($kingResponse);
                     }
                     // null = King daemon offline + purely local table: continue
@@ -2168,14 +2166,25 @@ class ApiController extends Controller
 
         # King (Daddy King) sync hook: only after a successful challenge update.
         if ($result && ($arr['status'] ?? false)) {
-            try {
-                app(KingChallengeGateway::class)->afterLocalChallengeAction((string) request()->type, $game_challenge, $user);
-            } catch (\Throwable $kingHookError) {
-                Log::error('[King] challenge hook failed', ['error' => $kingHookError->getMessage()]);
-            }
+            $challengeId = (int) $game_challenge->id;
+            $actionType = (string) request()->type;
+            $actingUserId = (int) $user->id;
+
+            dispatch(function () use ($challengeId, $actionType, $actingUserId): void {
+                try {
+                    $challenge = GameChallenge::find($challengeId);
+                    $actingUser = User::find($actingUserId);
+                    if (! $challenge || ! $actingUser) {
+                        return;
+                    }
+
+                    app(KingChallengeGateway::class)->afterLocalChallengeAction($actionType, $challenge, $actingUser);
+                } catch (\Throwable $kingHookError) {
+                    Log::error('[King] challenge hook failed', ['error' => $kingHookError->getMessage()]);
+                }
+            })->afterResponse();
         }
 
-        event(new DemoEvent(''));
         unlock_game_challenge($game_challenge);
         return response()->json($arr);
         } catch (Exception $e) {

@@ -90,16 +90,27 @@ class KingChallengeGateway
 
         # Wait for the daemon to confirm with the King server (bounded).
         $deadline = microtime(true) + max(2, (int) config('king.accept_timeout', 8));
+        $outboxId = (int) $row->id;
+        $dbPollAt = 0.0;
 
         while (microtime(true) < $deadline) {
-            usleep(200000); // 200ms
+            usleep(50000); // 50ms
 
-            $row = KingOutbox::find($row->id);
+            $signal = KingOutbox::readStatusSignal($outboxId);
+            if ($signal) {
+                $row = (object) array_merge(['id' => $outboxId], $signal);
+            } elseif (microtime(true) >= $dbPollAt) {
+                $dbPollAt = microtime(true) + 0.25;
+                $row = KingOutbox::find($outboxId);
+            }
+
             if (! $row) {
                 break;
             }
 
-            if ($row->status === KingOutbox::STATUS_SUCCESS) {
+            $status = is_object($row) ? $row->status : ($row['status'] ?? null);
+
+            if ($status === KingOutbox::STATUS_SUCCESS) {
                 $fresh = GameChallenge::with(['challenger', 'opponent'])->find($challenge->id);
 
                 return [
@@ -111,10 +122,10 @@ class KingChallengeGateway
                 ];
             }
 
-            if (in_array($row->status, [KingOutbox::STATUS_FAILED, KingOutbox::STATUS_SKIPPED], true)) {
+            if (in_array($status, [KingOutbox::STATUS_FAILED, KingOutbox::STATUS_SKIPPED], true)) {
                 unlock_game_challenge($challenge);
 
-                $message = $row->error ?: 'This table is no longer available.';
+                $message = (is_object($row) ? ($row->error ?? null) : ($row['error'] ?? null)) ?: 'This table is no longer available.';
 
                 return ['status' => false, 'message' => $message];
             }
