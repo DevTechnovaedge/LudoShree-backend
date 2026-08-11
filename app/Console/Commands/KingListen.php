@@ -2,9 +2,9 @@
 
 namespace App\Console\Commands;
 
-use App\Models\GameChallenge\GameChallenge;
 use App\Models\King\KingEventLog;
 use App\Models\King\KingOutbox;
+use App\Services\King\Connection\KingConnectionBloc;
 use App\Services\King\KingSyncService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
@@ -20,11 +20,9 @@ use React\EventLoop\Loop;
  *
  *   php artisan king:listen
  *
- * Responsibilities:
- *  - connect + login + join room, heartbeat every 8s
- *  - pump king_outbox (messages queued by the HTTP API / admin panel)
- *  - poll the table list and reconcile it into local state
- *  - reconnect automatically with backoff
+ * Lifecycle (KingConnectionBloc):
+ *   connecting → authenticating → joining → ready
+ * Ready state owns ping/pong + outbox. Reconnect only after unexpected drop.
  */
 class KingListen extends Command
 {
@@ -37,9 +35,8 @@ class KingListen extends Command
     /** @var array<int, \React\EventLoop\TimerInterface> */
     private array $timers = [];
 
-    private bool $loggedIn = false;
-
-    private bool $joinedRoom = false;
+    /** @var array<int, \React\EventLoop\TimerInterface> */
+    private array $oneShotTimers = [];
 
     private ?KingOutbox $inflight = null;
 
@@ -47,26 +44,23 @@ class KingListen extends Command
 
     private float $lastActivityAt = 0.0;
 
-    private int $reconnectDelay = 2;
-
     private bool $reconnectScheduled = false;
 
     private bool $intentionalClose = false;
 
     private bool $connectInFlight = false;
 
-    private bool $initialTableListRequested = false;
-
-    private bool $sessionReady = false;
-
     /** @var \React\EventLoop\TimerInterface|null */
     private $reconnectTimer = null;
 
     private KingSyncService $sync;
 
+    private KingConnectionBloc $bloc;
+
     public function handle(KingSyncService $sync): int
     {
         $this->sync = $sync;
+        $this->bloc = new KingConnectionBloc();
 
         if (! config('king.enabled')) {
             $this->rememberDaemonError('KING_WS_ENABLED=false in config. Set KING_WS_ENABLED=true in .env then php artisan config:cache');
@@ -90,11 +84,11 @@ class KingListen extends Command
         if (extension_loaded('pcntl')) {
             $loop->addSignal(SIGTERM, function () use ($loop) {
                 $this->info('SIGTERM received, shutting down.');
-                $this->closeConnection();
+                $this->closeConnection('shutdown');
                 $loop->stop();
             });
             $loop->addSignal(SIGINT, function () use ($loop) {
-                $this->closeConnection();
+                $this->closeConnection('shutdown');
                 $loop->stop();
             });
         }
@@ -117,13 +111,14 @@ class KingListen extends Command
     {
         // Never open a second socket while one is alive/connecting — King kicks
         // the previous session with 1000 Bye and we flap forever.
-        if ($this->conn || $this->connectInFlight) {
+        if ($this->conn || $this->connectInFlight || $this->bloc->state() === KingConnectionBloc::CONNECTING) {
             $this->logSys('info', 'connect() skipped — already connected or connecting');
 
             return;
         }
 
         $this->connectInFlight = true;
+        $this->bloc->markConnecting();
         $connector = new Connector(Loop::get());
 
         $connector((string) config('king.ws_url'))->then(
@@ -133,6 +128,7 @@ class KingListen extends Command
             },
             function (\Throwable $e) {
                 $this->connectInFlight = false;
+                $this->bloc->markDisconnected();
                 $this->warn('Connect failed: ' . $e->getMessage());
                 $this->logSys('warning', 'Connect failed: ' . $e->getMessage());
                 $this->scheduleReconnect();
@@ -143,10 +139,9 @@ class KingListen extends Command
     private function onConnected(WebSocket $conn): void
     {
         $this->cancelReconnectTimer();
+        $this->cancelAllTimers();
         $this->reconnectScheduled = false;
         $this->intentionalClose = false;
-        $this->initialTableListRequested = false;
-        $this->sessionReady = false;
 
         // Replace any stale handle without scheduling another reconnect.
         if ($this->conn && $this->conn !== $conn) {
@@ -161,12 +156,10 @@ class KingListen extends Command
         }
 
         $this->info('Connected. Logging in...');
+        $this->bloc->markAuthenticating();
 
         $this->conn = $conn;
-        $this->loggedIn = false;
-        $this->joinedRoom = false;
         $this->lastActivityAt = microtime(true);
-        $this->reconnectDelay = 2;
         $this->requeueInflight('Connection restarted');
 
         $conn->on('message', function ($msg) {
@@ -188,21 +181,30 @@ class KingListen extends Command
             }
 
             $who = $this->intentionalClose ? 'local' : 'remote';
-            $this->warn("Connection closed by {$who} ($code - $reason)");
-            $this->logSys('warning', "Connection closed by {$who} ($code - $reason)");
+            $lastOut = $this->bloc->lastOutboundSummary();
+            $this->warn("Connection closed by {$who} ($code - $reason) lastOut={$lastOut}");
+            $this->logSys('warning', "Connection closed by {$who} ($code - $reason) lastOut={$lastOut}");
 
             $this->conn = null;
-            $this->loggedIn = false;
-            $this->joinedRoom = false;
-            $this->sessionReady = false;
             $this->connectInFlight = false;
             $this->intentionalClose = false;
-            $this->cancelTimers();
+            $this->cancelAllTimers();
+            $this->bloc->markDisconnected();
+
+            if ($who === 'remote') {
+                $this->bloc->softenBackoffAfterRemoteBye();
+            }
+
+            // Never reconnect on intentional shutdown.
+            if ($who === 'local' && in_array((string) $reason, ['shutdown', 'replaced'], true)) {
+                return;
+            }
 
             $this->scheduleReconnect();
         });
 
-        $this->startTimers();
+        // Watchdog only during handshake — heartbeat starts after READY.
+        $this->startWatchdogTimer();
 
         $this->send('_login', [
             'LOBBY_NAME' => (string) config('king.lobby'),
@@ -211,78 +213,70 @@ class KingListen extends Command
         ]);
     }
 
-    private function startTimers(): void
+    private function startWatchdogTimer(): void
     {
-        $this->cancelTimers();
+        $loop = Loop::get();
+        $this->timers[] = $loop->addPeriodicTimer(1, function () {
+            $this->watchdog();
+            if ($this->bloc->isStable(90)) {
+                $this->bloc->resetReconnectBackoff();
+            }
+        });
+    }
+
+    private function enterReadyState(): void
+    {
+        if (! $this->conn || $this->bloc->state() !== KingConnectionBloc::JOINING) {
+            return;
+        }
+
+        $this->bloc->markReady();
+        $this->info('Session ready — heartbeat + outbox unlocked');
+        $this->logSys('info', 'Session ready — heartbeat + outbox unlocked');
 
         $loop = Loop::get();
 
-        # Heartbeat
-        $this->timers[] = $loop->addPeriodicTimer(max(3, (int) config('king.ping_interval', 8)), function () {
-            if (! $this->conn) {
+        // Ping/pong only while READY (doc: every 8–10s).
+        $pingEvery = max(8, (int) config('king.ping_interval', 8));
+        $this->timers[] = $loop->addPeriodicTimer($pingEvery, function () {
+            if (! $this->conn || ! $this->bloc->canHeartbeat()) {
                 return;
             }
             $this->send('_ping_pong', []);
             $this->touchAlive();
         });
 
-        # Outbox pump — keep spacing gentle; King drops us if we burst.
-        $this->timers[] = $loop->addPeriodicTimer(max(1.0, (float) config('king.outbox_interval', 1.0)), function () {
+        // Immediate first ping once ready so the alive window starts cleanly.
+        $this->send('_ping_pong', []);
+        $this->touchAlive();
+
+        $outboxEvery = max(1.0, (float) config('king.outbox_interval', 1.0));
+        $this->timers[] = $loop->addPeriodicTimer($outboxEvery, function () {
             $this->pumpOutbox();
         });
 
-        # Optional table list reconciliation (off by default — King pushes updates).
-        $pollInterval = (int) config('king.table_poll_interval', 0);
-        if ($pollInterval > 0) {
-            $this->timers[] = $loop->addPeriodicTimer(max(5, $pollInterval), function () {
-                if ($this->joinedRoom && ! $this->isPaused()) {
-                    $this->send('GetKingTableListReq', []);
-                }
-            });
-        }
-
-        # Result-safety poll DISABLED by default: Daddy King currently closes
-        # the socket with 1000 Bye whenever we send GetKingTableListReq.
-        # They already push a list snapshot on JoinKingRoomRequest, and we
-        # apply realtime table pushes — so outbound list polling is unsafe.
-        $activePoll = (int) config('king.active_poll_interval', 0);
-        if ($activePoll > 0 && $pollInterval <= 0) {
-            $this->timers[] = $loop->addPeriodicTimer(max(30, $activePoll), function () {
-                if (! $this->joinedRoom || ! $this->sessionReady || $this->isPaused()) {
-                    return;
-                }
-
-                $hasActiveKingGame = $this->db(function () {
-                    return GameChallenge::query()
-                        ->whereNotNull('king_table_id')
-                        ->whereIn('status', [1, 8])
-                        ->exists();
-                }, false);
-
-                if ($hasActiveKingGame) {
-                    $this->logSys('info', 'Active-game list poll skipped (GetKingTableListReq causes remote Bye)');
-                }
-            });
-        }
-
-        # Watchdog: in-flight timeouts + dead connection detection
-        $this->timers[] = $loop->addPeriodicTimer(1, function () {
-            $this->watchdog();
-        });
-
-        # Housekeeping (hourly)
         $this->timers[] = $loop->addPeriodicTimer(3600, function () {
             $this->housekeeping();
         });
     }
 
-    private function cancelTimers(): void
+    private function cancelAllTimers(): void
     {
         foreach ($this->timers as $timer) {
-            Loop::get()->cancelTimer($timer);
+            try {
+                Loop::get()->cancelTimer($timer);
+            } catch (\Throwable $e) {
+            }
         }
-
         $this->timers = [];
+
+        foreach ($this->oneShotTimers as $timer) {
+            try {
+                Loop::get()->cancelTimer($timer);
+            } catch (\Throwable $e) {
+            }
+        }
+        $this->oneShotTimers = [];
     }
 
     private function cancelReconnectTimer(): void
@@ -303,16 +297,14 @@ class KingListen extends Command
             return;
         }
 
-        $this->cancelTimers();
-        $this->loggedIn = false;
-        $this->joinedRoom = false;
+        $this->cancelAllTimers();
         $this->requeueInflight('Reconnecting');
 
-        $delay = $this->reconnectDelay;
-        $this->reconnectDelay = min(60, max(2, $this->reconnectDelay * 2));
+        $delay = $this->bloc->nextReconnectDelay();
         $this->reconnectScheduled = true;
 
         $this->info("Reconnecting in {$delay}s...");
+        $this->logSys('info', "Reconnecting in {$delay}s");
 
         $this->reconnectTimer = Loop::get()->addTimer($delay, function () {
             $this->reconnectTimer = null;
@@ -324,7 +316,7 @@ class KingListen extends Command
     private function closeConnection(string $reason = 'shutdown'): void
     {
         $this->cancelReconnectTimer();
-        $this->cancelTimers();
+        $this->cancelAllTimers();
 
         if ($this->conn) {
             $this->intentionalClose = true;
@@ -334,11 +326,13 @@ class KingListen extends Command
             }
             $this->conn = null;
         }
+
+        $this->bloc->markDisconnected();
     }
 
     private function watchdog(): void
     {
-        # In-flight request timed out
+        # In-flight request timed out — fail/requeue the row, keep the socket.
         if ($this->inflight && (microtime(true) - $this->inflightSentAt) > 12) {
             $row = $this->inflight;
             $this->inflight = null;
@@ -361,15 +355,16 @@ class KingListen extends Command
                 KingOutbox::signalStatus((int) $fresh->id, (string) $fresh->status, $fresh->error);
             });
 
-            $this->logSys('warning', "No response for {$row->event} #{$row->id} - reconnecting");
-            $this->forceClose('inflight-timeout');
+            $this->logSys('warning', "No response for {$row->event} #{$row->id} — keeping socket (no reconnect)");
 
             return;
         }
 
-        # Dead connection (no pong / no traffic)
-        if ($this->conn && (microtime(true) - $this->lastActivityAt) > (int) config('king.alive_ttl', 30)) {
+        # Dead connection (no pong / no traffic) — only reconnect path besides remote close.
+        $aliveTtl = max(45, (int) config('king.alive_ttl', 45));
+        if ($this->conn && $this->bloc->isReady() && (microtime(true) - $this->lastActivityAt) > $aliveTtl) {
             $this->warn('No traffic - forcing reconnect');
+            $this->logSys('warning', 'No traffic - forcing reconnect');
             $this->forceClose('alive-ttl');
         }
     }
@@ -388,27 +383,14 @@ class KingListen extends Command
         } catch (\Throwable $e) {
             $this->conn = null;
             $this->intentionalClose = false;
+            $this->bloc->markDisconnected();
             $this->scheduleReconnect();
         }
     }
 
-    private function scheduleInitialTableListSync(): void
-    {
-        // Daddy King currently closes the socket (1000 Bye) when we request the
-        // full table list right after join. Rely on realtime pushes + the
-        // active-game poll instead of a join-time dump.
-        if ($this->initialTableListRequested) {
-            return;
-        }
-
-        $this->initialTableListRequested = true;
-        $this->info('Skipping join-time GetKingTableListReq (avoids remote Bye kick)');
-        $this->logSys('info', 'Skipped join-time GetKingTableListReq to keep session alive');
-    }
-
     private function scheduleSessionReady(): void
     {
-        // Expire the reconnect-storm backlog so we never flood King on join.
+        // Drop stale backlog so we never flood King right after join.
         $this->db(function () {
             $cutoff = now()->subHour();
             $n = KingOutbox::query()
@@ -425,15 +407,12 @@ class KingListen extends Command
             }
         });
 
-        Loop::get()->addTimer(8, function () {
-            if (! $this->conn || ! $this->joinedRoom) {
-                return;
-            }
+        $settleSec = max(3, (int) config('king.session_settle_seconds', 5));
+        $this->info("Room joined. Stabilizing {$settleSec}s before ready...");
+        $this->logSys('info', "Room joined — stabilizing {$settleSec}s before heartbeat/outbox");
 
-            $this->sessionReady = true;
-            $this->info('Session ready — outbox unlocked');
-            $this->logSys('info', 'Session ready — outbox unlocked');
-            $this->scheduleInitialTableListSync();
+        $this->oneShotTimers[] = Loop::get()->addTimer($settleSec, function () {
+            $this->enterReadyState();
         });
     }
 
@@ -453,6 +432,7 @@ class KingListen extends Command
         $param = is_array($param) ? $param : [];
 
         if ($uri === '_ping_pong') {
+            // Pong keeps lastActivityAt fresh (already updated on message receive).
             return;
         }
 
@@ -465,13 +445,13 @@ class KingListen extends Command
                 if ($param['status'] ?? false) {
                     $clientId = (string) ($param['ID'] ?? $param['USERNAME'] ?? '');
                     $this->db(fn () => $this->sync->rememberClientId($clientId));
-                    $this->loggedIn = true;
+                    $this->bloc->markJoining();
                     $this->info("Logged in (client id: $clientId). Joining room...");
                     $this->send('JoinKingRoomRequest', []);
                 } else {
                     $this->error('Login rejected: ' . ($param['message'] ?? ''));
                     $this->logSys('error', 'Login rejected: ' . ($param['message'] ?? ''));
-                    $this->reconnectDelay = 60;
+                    $this->bloc->softenBackoffAfterRemoteBye();
                     $this->forceClose('login-rejected');
                 }
 
@@ -480,17 +460,23 @@ class KingListen extends Command
             case '_login_error':
                 $this->error('Login failed: ' . ($param['message'] ?? ''));
                 $this->logSys('error', 'Login failed (check KING_WS_API_KEY / SECRET): ' . ($param['message'] ?? ''));
-                $this->reconnectDelay = 60;
+                $this->bloc->softenBackoffAfterRemoteBye();
                 $this->forceClose('login-error');
 
                 return;
 
             case 'JoinKingRoomRequest':
-                if (! $this->joinedRoom && ($param['status'] ?? false)) {
-                    $this->joinedRoom = true;
-                    $this->info('Room joined. Stabilizing session...');
-                    $this->logSys('info', 'Room joined — stabilizing before outbox/table sync');
+                if ($this->bloc->state() === KingConnectionBloc::JOINING && ($param['status'] ?? false)) {
                     $this->scheduleSessionReady();
+
+                    // Join responses often include a table snapshot — apply without
+                    // ever requesting GetKingTableListReq ourselves.
+                    $data = is_array($param['data'] ?? null) ? $param['data'] : null;
+                    if (is_array($data) && isset($data[0])) {
+                        $this->db(fn () => $this->sync->reconcileList($data));
+                    } elseif (is_array($data) && isset($data['id'])) {
+                        $this->db(fn () => $this->sync->applyTableSnapshot($data));
+                    }
 
                     return;
                 }
@@ -550,9 +536,9 @@ class KingListen extends Command
 
     private function pumpOutbox(): void
     {
-        // Wait until the King session is stable — flooding stale outbox right
-        // after JoinKingRoomRequest makes their server drop us with 1000 Bye.
-        if (! $this->conn || ! $this->loggedIn || ! $this->joinedRoom || ! $this->sessionReady || $this->inflight || $this->isPaused()) {
+        // Wait until the King session is READY — flooding outbox during join
+        // makes their server drop us with 1000 Bye.
+        if (! $this->conn || ! $this->bloc->canPumpOutbox() || $this->inflight || $this->isPaused()) {
             return;
         }
 
@@ -715,11 +701,19 @@ class KingListen extends Command
             return;
         }
 
+        // Game events only after join; heartbeat only in READY (enforced by caller).
+        if (! in_array($uri, ['_login', '_ping_pong'], true) && ! $this->bloc->canSendGameEvents()) {
+            $this->logSys('warning', "Blocked outbound {$uri} — session not joined yet");
+
+            return;
+        }
+
         try {
             $this->conn->send(json_encode([
                 '_URI' => $uri,
                 'PARAM' => $param ?: new \stdClass(),
             ]));
+            $this->bloc->noteOutbound($uri);
         } catch (\Throwable $e) {
             Log::error('[King] send failed', ['uri' => $uri, 'error' => $e->getMessage()]);
         }

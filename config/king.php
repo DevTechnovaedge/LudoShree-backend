@@ -51,10 +51,13 @@ return [
     // join with the King server before telling the user to retry (seconds).
     'accept_timeout' => (int) env('KING_ACCEPT_TIMEOUT', 8),
 
+    // How long to wait after JoinKingRoom before unlocking heartbeat/outbox.
+    'session_settle_seconds' => (int) env('KING_SESSION_SETTLE_SECONDS', 5),
+
     // If no pong / message activity for this many seconds the connection is
     // considered dead and the daemon reconnects. Also used by the HTTP side
     // to detect that the daemon is offline (falls back to local-only accept).
-    'alive_ttl' => (int) env('KING_ALIVE_TTL', 30),
+    'alive_ttl' => (int) env('KING_ALIVE_TTL', 45),
 
     // Max delivery attempts for retryable outbox messages.
     'max_attempts' => (int) env('KING_MAX_ATTEMPTS', 5),
