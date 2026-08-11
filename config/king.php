@@ -44,7 +44,8 @@ return [
     'active_poll_interval' => (int) env('KING_ACTIVE_POLL_INTERVAL', 15),
 
     // How often the daemon checks king_outbox for pending messages (seconds).
-    'outbox_interval' => (float) env('KING_OUTBOX_INTERVAL', 0.25),
+    // Keep >= 1 to avoid bursting the King socket after join.
+    'outbox_interval' => (float) env('KING_OUTBOX_INTERVAL', 1.0),
 
     // How long the HTTP accept endpoint waits for the daemon to confirm the
     // join with the King server before telling the user to retry (seconds).

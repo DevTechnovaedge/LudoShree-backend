@@ -226,8 +226,8 @@ class KingListen extends Command
             $this->touchAlive();
         });
 
-        # Outbox pump
-        $this->timers[] = $loop->addPeriodicTimer(max(0.2, (float) config('king.outbox_interval', 0.25)), function () {
+        # Outbox pump — keep spacing gentle; King drops us if we burst.
+        $this->timers[] = $loop->addPeriodicTimer(max(1.0, (float) config('king.outbox_interval', 1.0)), function () {
             $this->pumpOutbox();
         });
 
@@ -393,27 +393,23 @@ class KingListen extends Command
 
     private function scheduleInitialTableListSync(): void
     {
+        // Daddy King currently closes the socket (1000 Bye) when we request the
+        // full table list right after join. Rely on realtime pushes + the
+        // active-game poll instead of a join-time dump.
         if ($this->initialTableListRequested) {
             return;
         }
 
         $this->initialTableListRequested = true;
-
-        Loop::get()->addTimer(2, function () {
-            if (! $this->conn || ! $this->joinedRoom || ! $this->sessionReady) {
-                return;
-            }
-
-            $this->info('Syncing table list...');
-            $this->send('GetKingTableListReq', []);
-        });
+        $this->info('Skipping join-time GetKingTableListReq (avoids remote Bye kick)');
+        $this->logSys('info', 'Skipped join-time GetKingTableListReq to keep session alive');
     }
 
     private function scheduleSessionReady(): void
     {
         // Expire the reconnect-storm backlog so we never flood King on join.
         $this->db(function () {
-            $cutoff = now()->subHours(6);
+            $cutoff = now()->subHour();
             $n = KingOutbox::query()
                 ->where('status', KingOutbox::STATUS_PENDING)
                 ->where('created_at', '<', $cutoff)
@@ -423,12 +419,12 @@ class KingListen extends Command
                 ]);
 
             if ($n > 0) {
-                KingEventLog::write('sys', '', 'warning', "Skipped {$n} stale pending outbox row(s) older than 6h");
+                KingEventLog::write('sys', '', 'warning', "Skipped {$n} stale pending outbox row(s) older than 1h");
                 $this->warn("Skipped {$n} stale pending outbox row(s)");
             }
         });
 
-        Loop::get()->addTimer(5, function () {
+        Loop::get()->addTimer(8, function () {
             if (! $this->conn || ! $this->joinedRoom) {
                 return;
             }
