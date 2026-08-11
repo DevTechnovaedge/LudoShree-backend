@@ -81,6 +81,43 @@
         margin-bottom: 0;
         justify-content: flex-end;
     }
+
+    .king-sync-page .payload-pre {
+        margin: .35rem 0 0;
+        padding: .5rem .65rem;
+        max-height: 220px;
+        overflow: auto;
+        background: #1e1e2e;
+        color: #cdd6f4;
+        border-radius: 6px;
+        font-size: 11px;
+        line-height: 1.4;
+        white-space: pre-wrap;
+        word-break: break-word;
+    }
+
+    .king-sync-page details.payload-details > summary {
+        cursor: pointer;
+        color: #007bff;
+        font-size: 12px;
+        font-weight: 600;
+        list-style: none;
+        user-select: none;
+    }
+
+    .king-sync-page details.payload-details > summary::-webkit-details-marker {
+        display: none;
+    }
+
+    .king-sync-page details.payload-details > summary::before {
+        content: '▸ ';
+        display: inline-block;
+        transition: transform .15s ease;
+    }
+
+    .king-sync-page details.payload-details[open] > summary::before {
+        transform: rotate(90deg);
+    }
 </style>
 @endsection
 
@@ -349,13 +386,31 @@
                                                     <th>Challenge</th>
                                                     <th>Status</th>
                                                     <th>Attempts</th>
-                                                    <th>Error</th>
+                                                    <th>Error / Payload</th>
                                                     <th>Created</th>
                                                     <th class="text-center">Action</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 @forelse($outbox as $o)
+                                                    @php
+                                                        $outboxPayloadPretty = null;
+                                                        if (! empty($o->payload)) {
+                                                            $decodedPayload = json_decode((string) $o->payload, true);
+                                                            $outboxPayloadPretty = json_encode(
+                                                                $decodedPayload ?? $o->payload,
+                                                                JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+                                                            );
+                                                        }
+                                                        $outboxResponsePretty = null;
+                                                        if (! empty($o->response)) {
+                                                            $decodedResponse = json_decode((string) $o->response, true);
+                                                            $outboxResponsePretty = json_encode(
+                                                                $decodedResponse ?? $o->response,
+                                                                JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+                                                            );
+                                                        }
+                                                    @endphp
                                                     <tr>
                                                         <td>{{ $o->id }}</td>
                                                         <td><code>{{ $o->event }}</code></td>
@@ -365,7 +420,26 @@
                                                             <span class="badge badge-{{ ['pending' => 'warning', 'sent' => 'info', 'success' => 'success', 'failed' => 'danger', 'skipped' => 'secondary'][$o->status] ?? 'secondary' }}">{{ $o->status }}</span>
                                                         </td>
                                                         <td>{{ $o->attempts }}</td>
-                                                        <td><small class="text-danger">{{ \Illuminate\Support\Str::limit($o->error, 60) }}</small></td>
+                                                        <td style="min-width: 220px; max-width: 360px;">
+                                                            @if($o->error)
+                                                                <small class="text-danger d-block mb-1">{{ \Illuminate\Support\Str::limit($o->error, 120) }}</small>
+                                                            @endif
+                                                            @if($outboxPayloadPretty)
+                                                                <details class="payload-details">
+                                                                    <summary>View payload</summary>
+                                                                    <pre class="payload-pre">{{ $outboxPayloadPretty }}</pre>
+                                                                </details>
+                                                            @endif
+                                                            @if($outboxResponsePretty)
+                                                                <details class="payload-details mt-1">
+                                                                    <summary>View response</summary>
+                                                                    <pre class="payload-pre">{{ $outboxResponsePretty }}</pre>
+                                                                </details>
+                                                            @endif
+                                                            @if(! $o->error && ! $outboxPayloadPretty && ! $outboxResponsePretty)
+                                                                <span class="text-muted">—</span>
+                                                            @endif
+                                                        </td>
                                                         <td><small>{{ $o->created_at?->format('d M, h:i A') }}</small></td>
                                                         <td class="text-center">
                                                             @if(in_array($o->status, ['failed', 'skipped']) && $o->event != 'KingAcceptRequest')
@@ -419,11 +493,21 @@
                                                     <th>Dir</th>
                                                     <th>URI</th>
                                                     <th>Level</th>
-                                                    <th>Message</th>
+                                                    <th>Message / Payload</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 @forelse($logs as $l)
+                                                    @php
+                                                        $logPayloadPretty = null;
+                                                        if (! empty($l->payload)) {
+                                                            $decodedLogPayload = json_decode((string) $l->payload, true);
+                                                            $logPayloadPretty = json_encode(
+                                                                $decodedLogPayload ?? $l->payload,
+                                                                JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+                                                            );
+                                                        }
+                                                    @endphp
                                                     <tr>
                                                         <td><small>{{ $l->created_at?->format('d M, h:i:s A') }}</small></td>
                                                         <td><span class="badge badge-light">{{ strtoupper($l->direction) }}</span></td>
@@ -431,7 +515,15 @@
                                                         <td>
                                                             <span class="badge badge-{{ ['info' => 'secondary', 'warning' => 'warning', 'error' => 'danger'][$l->level] ?? 'secondary' }}">{{ $l->level }}</span>
                                                         </td>
-                                                        <td>{{ $l->message }}</td>
+                                                        <td style="min-width: 260px; max-width: 520px;">
+                                                            <div>{{ $l->message }}</div>
+                                                            @if($logPayloadPretty)
+                                                                <details class="payload-details mt-1">
+                                                                    <summary>View payload</summary>
+                                                                    <pre class="payload-pre">{{ $logPayloadPretty }}</pre>
+                                                                </details>
+                                                            @endif
+                                                        </td>
                                                     </tr>
                                                 @empty
                                                     <tr>
