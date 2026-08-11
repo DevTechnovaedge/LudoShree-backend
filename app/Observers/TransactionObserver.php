@@ -1,36 +1,30 @@
 <?php
 
 namespace App\Observers;
+
 use App\Models\GameChallenge\Transaction;
-use App\Events\DemoEvent;
-use App\Models\User;
+use App\Support\SafeBroadcast;
 use Illuminate\Support\Facades\Log;
 
 class TransactionObserver
 {
-    public function created(Transaction $user): void {
-        // Code to run after a user is created
+    public function created(Transaction $transaction): void
+    {
         Log::info('Transaction created:');
-        event(new DemoEvent(''));
-    }
-    
-    public function updated(Transaction $transaction): void {
-        
-            // Trigger the event
-            event(new DemoEvent(''));
-       
+        SafeBroadcast::demoEventPing();
     }
 
-    public function deleted(Transaction $user): void {
-        // Code to run after a user is deleted
-        event(new DemoEvent(''));
+    public function updated(Transaction $transaction): void
+    {
+        SafeBroadcast::demoEventPing();
     }
-    public function restored(Transaction $user): void {
-        // Code to run after a user is restored
+
+    public function deleted(Transaction $transaction): void
+    {
+        SafeBroadcast::demoEventPing();
     }
-    public function forceDeleted(Transaction $user): void {
-        // Code to run after a user is permanently deleted
-    }
+
+    public function restored(Transaction $transaction): void {}
+
+    public function forceDeleted(Transaction $transaction): void {}
 }
-
-?>

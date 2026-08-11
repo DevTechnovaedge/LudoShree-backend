@@ -1304,13 +1304,7 @@ class ApiController extends Controller
                 # End Roomcode not updated yet
 
                 # Safety: idempotent refund for waiting games (no opponent) if not credited yet
-                if (empty($game_challenge->opponent_id)) {
-                    app(GameChallengeStakeRefundService::class)->refundUserStake(
-                        (int) $game_challenge->id,
-                        (int) $game_challenge->challenger_id,
-                        "Challenge Refund Ref: {$game_challenge->uid}"
-                    );
-                }
+                # (handled above at lines 1241–1248 — do not duplicate here)
 
                 $message    =   'Game Challenge cancel successfully.';
 
@@ -2058,7 +2052,7 @@ class ApiController extends Controller
         # ===========================================================================
 
         if ($result) :
-            $game_challenge               =   GameChallenge::find($result->id);
+            $game_challenge = GameChallenge::with(['challenger', 'opponent', 'game_type'])->find($result->id);
 
             if ($result->wasRecentlyCreated) :
 

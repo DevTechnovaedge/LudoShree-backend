@@ -8,6 +8,7 @@ use App\Models\GameChallenge\Wallet;
 use App\Models\GameChallenge\GameChallenge;
 use App\Models\Administrator;
 use App\Models\Role;
+use Illuminate\Support\Facades\Cache;
 
 class UserResource extends JsonResource
 {
@@ -37,21 +38,35 @@ class UserResource extends JsonResource
                return false;
            }
 
-           $admins = Administrator::select('mobile', 'role_id', 'status')
-               ->where('status', 1)
-               ->get();
+           $cashierMobiles = Cache::remember('cashier_admin_mobiles', 300, function () {
+               $admins = Administrator::query()
+                   ->where('status', 1)
+                   ->whereNotNull('mobile')
+                   ->where('mobile', '!=', '')
+                   ->get(['mobile', 'role_id']);
 
-           foreach ($admins as $admin) {
-               if (!$admin->role_id) continue;
-               $adminMobile = $this->normalizeMobile((string) ($admin->mobile ?? ''));
-               if ($adminMobile !== $mobile) continue;
-               $roleName = Role::where('id', $admin->role_id)->value('name');
-               if ($this->isCashierRoleName($roleName)) {
-                   return true;
+               if ($admins->isEmpty()) {
+                   return [];
                }
-           }
 
-           return false;
+               $roleNames = Role::query()
+                   ->whereIn('id', $admins->pluck('role_id')->filter()->unique()->values())
+                   ->pluck('name', 'id');
+
+               return $admins
+                   ->filter(function ($admin) use ($roleNames) {
+                       $roleName = $roleNames->get($admin->role_id);
+
+                       return $this->isCashierRoleName($roleName);
+                   })
+                   ->map(fn ($admin) => $this->normalizeMobile((string) $admin->mobile))
+                   ->filter()
+                   ->unique()
+                   ->values()
+                   ->all();
+           });
+
+           return in_array($mobile, $cashierMobiles, true);
        }
     /**
      * Transform the resource into an array.

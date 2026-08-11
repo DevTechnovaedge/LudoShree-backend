@@ -2,7 +2,6 @@
 
 namespace App\Observers;
 
-use App\Events\DemoEvent;
 use App\Events\GameChallengeChanged;
 use App\Models\GameChallenge\GameChallenge;
 use App\Support\SafeBroadcast;
@@ -50,7 +49,7 @@ class GameChallengeObserver
                 return;
             }
 
-            SafeBroadcast::event(new DemoEvent(''));
+            SafeBroadcast::demoEventPing();
             SafeBroadcast::event(GameChallengeChanged::fromModel($fresh, $action));
         };
 
