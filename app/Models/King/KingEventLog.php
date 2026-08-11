@@ -42,11 +42,15 @@ class KingEventLog extends Model
     {
         try {
             $limit = max(1, $limit ?? (int) config('king.log_max_rows', 100));
-            $maxId = (int) static::query()->max('id');
-            if ($maxId <= $limit) {
+            $count = (int) static::query()->count();
+            if ($count <= $limit) {
                 return;
             }
-            static::query()->where('id', '<=', $maxId - $limit)->delete();
+            $keepIds = static::query()->orderByDesc('id')->limit($limit)->pluck('id');
+            if ($keepIds->isEmpty()) {
+                return;
+            }
+            static::query()->whereNotIn('id', $keepIds)->delete();
         } catch (\Throwable $e) {
             // Prune must never break the sync flow.
         }
