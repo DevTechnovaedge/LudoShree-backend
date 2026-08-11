@@ -49,6 +49,17 @@ class KingListen extends Command
 
     private int $reconnectDelay = 2;
 
+    private bool $reconnectScheduled = false;
+
+    private bool $intentionalClose = false;
+
+    private bool $connectInFlight = false;
+
+    private bool $initialTableListRequested = false;
+
+    /** @var \React\EventLoop\TimerInterface|null */
+    private $reconnectTimer = null;
+
     private KingSyncService $sync;
 
     public function handle(KingSyncService $sync): int
@@ -102,13 +113,24 @@ class KingListen extends Command
 
     private function connect(): void
     {
+        // Never open a second socket while one is alive/connecting — King kicks
+        // the previous session with 1000 Bye and we flap forever.
+        if ($this->conn || $this->connectInFlight) {
+            $this->logSys('info', 'connect() skipped — already connected or connecting');
+
+            return;
+        }
+
+        $this->connectInFlight = true;
         $connector = new Connector(Loop::get());
 
         $connector((string) config('king.ws_url'))->then(
             function (WebSocket $conn) {
+                $this->connectInFlight = false;
                 $this->onConnected($conn);
             },
             function (\Throwable $e) {
+                $this->connectInFlight = false;
                 $this->warn('Connect failed: ' . $e->getMessage());
                 $this->logSys('warning', 'Connect failed: ' . $e->getMessage());
                 $this->scheduleReconnect();
@@ -118,6 +140,23 @@ class KingListen extends Command
 
     private function onConnected(WebSocket $conn): void
     {
+        $this->cancelReconnectTimer();
+        $this->reconnectScheduled = false;
+        $this->intentionalClose = false;
+        $this->initialTableListRequested = false;
+
+        // Replace any stale handle without scheduling another reconnect.
+        if ($this->conn && $this->conn !== $conn) {
+            $old = $this->conn;
+            $this->conn = null;
+            $this->intentionalClose = true;
+            try {
+                $old->close(1000, 'replaced');
+            } catch (\Throwable $e) {
+            }
+            $this->intentionalClose = false;
+        }
+
         $this->info('Connected. Logging in...');
 
         $this->conn = $conn;
@@ -139,10 +178,23 @@ class KingListen extends Command
             }
         });
 
-        $conn->on('close', function ($code = null, $reason = null) {
-            $this->warn("Connection closed ($code - $reason)");
-            $this->logSys('warning', "Connection closed ($code - $reason)");
+        $conn->on('close', function ($code = null, $reason = null) use ($conn) {
+            // Ignore close callbacks from a socket we already replaced.
+            if ($this->conn !== null && $this->conn !== $conn) {
+                return;
+            }
+
+            $who = $this->intentionalClose ? 'local' : 'remote';
+            $this->warn("Connection closed by {$who} ($code - $reason)");
+            $this->logSys('warning', "Connection closed by {$who} ($code - $reason)");
+
             $this->conn = null;
+            $this->loggedIn = false;
+            $this->joinedRoom = false;
+            $this->connectInFlight = false;
+            $this->intentionalClose = false;
+            $this->cancelTimers();
+
             $this->scheduleReconnect();
         });
 
@@ -163,6 +215,9 @@ class KingListen extends Command
 
         # Heartbeat
         $this->timers[] = $loop->addPeriodicTimer(max(3, (int) config('king.ping_interval', 8)), function () {
+            if (! $this->conn) {
+                return;
+            }
             $this->send('_ping_pong', []);
             $this->touchAlive();
         });
@@ -226,31 +281,51 @@ class KingListen extends Command
         $this->timers = [];
     }
 
+    private function cancelReconnectTimer(): void
+    {
+        if ($this->reconnectTimer) {
+            try {
+                Loop::get()->cancelTimer($this->reconnectTimer);
+            } catch (\Throwable $e) {
+            }
+            $this->reconnectTimer = null;
+        }
+        $this->reconnectScheduled = false;
+    }
+
     private function scheduleReconnect(): void
     {
+        if ($this->reconnectScheduled || $this->conn || $this->connectInFlight) {
+            return;
+        }
+
         $this->cancelTimers();
-        $this->conn = null;
         $this->loggedIn = false;
         $this->joinedRoom = false;
         $this->requeueInflight('Reconnecting');
 
         $delay = $this->reconnectDelay;
-        $this->reconnectDelay = min(60, $this->reconnectDelay * 2);
+        $this->reconnectDelay = min(60, max(2, $this->reconnectDelay * 2));
+        $this->reconnectScheduled = true;
 
         $this->info("Reconnecting in {$delay}s...");
 
-        Loop::get()->addTimer($delay, function () {
+        $this->reconnectTimer = Loop::get()->addTimer($delay, function () {
+            $this->reconnectTimer = null;
+            $this->reconnectScheduled = false;
             $this->connect();
         });
     }
 
-    private function closeConnection(): void
+    private function closeConnection(string $reason = 'shutdown'): void
     {
+        $this->cancelReconnectTimer();
         $this->cancelTimers();
 
         if ($this->conn) {
+            $this->intentionalClose = true;
             try {
-                $this->conn->close();
+                $this->conn->close(1000, $reason);
             } catch (\Throwable $e) {
             }
             $this->conn = null;
@@ -282,10 +357,7 @@ class KingListen extends Command
             });
 
             $this->logSys('warning', "No response for {$row->event} #{$row->id} - reconnecting");
-
-            if ($this->conn) {
-                $this->conn->close();
-            }
+            $this->forceClose('inflight-timeout');
 
             return;
         }
@@ -293,8 +365,44 @@ class KingListen extends Command
         # Dead connection (no pong / no traffic)
         if ($this->conn && (microtime(true) - $this->lastActivityAt) > (int) config('king.alive_ttl', 30)) {
             $this->warn('No traffic - forcing reconnect');
-            $this->conn->close();
+            $this->forceClose('alive-ttl');
         }
+    }
+
+    private function forceClose(string $reason): void
+    {
+        if (! $this->conn) {
+            $this->scheduleReconnect();
+
+            return;
+        }
+
+        $this->intentionalClose = true;
+        try {
+            $this->conn->close(1000, $reason);
+        } catch (\Throwable $e) {
+            $this->conn = null;
+            $this->intentionalClose = false;
+            $this->scheduleReconnect();
+        }
+    }
+
+    private function scheduleInitialTableListSync(): void
+    {
+        if ($this->initialTableListRequested) {
+            return;
+        }
+
+        $this->initialTableListRequested = true;
+
+        Loop::get()->addTimer(3, function () {
+            if (! $this->conn || ! $this->joinedRoom) {
+                return;
+            }
+
+            $this->info('Syncing table list...');
+            $this->send('GetKingTableListReq', []);
+        });
     }
 
     /* =====================================================================
@@ -332,7 +440,7 @@ class KingListen extends Command
                     $this->error('Login rejected: ' . ($param['message'] ?? ''));
                     $this->logSys('error', 'Login rejected: ' . ($param['message'] ?? ''));
                     $this->reconnectDelay = 60;
-                    $this->conn?->close();
+                    $this->forceClose('login-rejected');
                 }
 
                 return;
@@ -341,15 +449,18 @@ class KingListen extends Command
                 $this->error('Login failed: ' . ($param['message'] ?? ''));
                 $this->logSys('error', 'Login failed (check KING_WS_API_KEY / SECRET): ' . ($param['message'] ?? ''));
                 $this->reconnectDelay = 60;
-                $this->conn?->close();
+                $this->forceClose('login-error');
 
                 return;
 
             case 'JoinKingRoomRequest':
                 if (! $this->joinedRoom && ($param['status'] ?? false)) {
                     $this->joinedRoom = true;
-                    $this->info('Room joined. Syncing table list...');
-                    $this->send('GetKingTableListReq', []);
+                    $this->info('Room joined. Waiting before table sync...');
+                    $this->logSys('info', 'Room joined — connection stable path');
+                    // Defer list fetch so King does not drop a brand-new session
+                    // that immediately requests the full table dump.
+                    $this->scheduleInitialTableListSync();
 
                     return;
                 }
@@ -358,6 +469,7 @@ class KingListen extends Command
             case 'GetKingTableListReq':
                 $tables = is_array($param['data'] ?? null) ? $param['data'] : [];
                 $this->db(fn () => $this->sync->reconcileList($tables));
+                $this->logSys('info', 'Table list reconciled ('.count($tables).' rows)');
 
                 return;
         }
