@@ -2230,11 +2230,8 @@ class ApiController extends Controller
         );
 
         $userId = $this->user()->id;
-        $relations = [
-            'challenger:id,uid,name,profile_url',
-            'opponent:id,uid,name,profile_url',
-            'game_type:id,name',
-        ];
+        // Eager-load full related models (do NOT constrain columns — profile_url is an accessor).
+        $relations = ['challenger', 'opponent', 'game_type'];
 
         # My Challenges (active only: user is challenger or opponent, not terminal)
         # Terminal statuses: 2 Cancel, 4 Complete, 6 Suspended, 7 Cancelled
