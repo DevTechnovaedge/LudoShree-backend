@@ -63,6 +63,9 @@ return [
     // game came from the Daddy King network.
     'player_name_suffix' => env('KING_PLAYER_NAME_SUFFIX', ' [DK]'),
 
-    // Days to keep king_event_logs rows.
+    // Days to keep king_event_logs rows (secondary cleanup).
     'log_retention_days' => (int) env('KING_LOG_RETENTION_DAYS', 7),
+
+    // Hard cap: keep only the newest N event log rows.
+    'log_max_rows' => (int) env('KING_LOG_MAX_ROWS', 100),
 ];

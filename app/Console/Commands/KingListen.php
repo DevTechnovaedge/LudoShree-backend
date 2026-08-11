@@ -757,6 +757,8 @@ class KingListen extends Command
     private function housekeeping(): void
     {
         $this->db(function () {
+            KingEventLog::pruneToLimit();
+
             $days = max(1, (int) config('king.log_retention_days', 7));
             KingEventLog::query()->where('created_at', '<', now()->subDays($days))->delete();
 
