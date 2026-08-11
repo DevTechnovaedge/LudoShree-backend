@@ -80,6 +80,35 @@ class GameChallenge extends Model
     }
 
     /**
+     * Stake one player must pay to join / create (entry fee, not the pot).
+     *
+     * After accept, `amount` becomes pot (2x entry). Waiting tables should keep
+     * entry in both fields, but some rows can drift — always prefer
+     * challenger_amount when it is a sensible entry fee.
+     */
+    public function entryStakeAmount(): float
+    {
+        $entry = round((float) ($this->challenger_amount ?? 0), 2);
+        $amount = round((float) ($this->amount ?? 0), 2);
+
+        if ($entry > 0) {
+            // amount already looks like pot (≈ 2 × entry)
+            if ($amount > 0 && abs($amount - ($entry * 2)) < 0.02) {
+                return $entry;
+            }
+
+            // Prefer the smaller positive value when both look like stakes
+            if ($amount > 0 && $amount < $entry) {
+                return $amount;
+            }
+
+            return $entry;
+        }
+
+        return max(0.0, $amount);
+    }
+
+    /**
      * Compact admin badge: DK Sync (we created) vs DK Remote (Daddy King origin).
      */
     public function kingBadgeHtml(): string

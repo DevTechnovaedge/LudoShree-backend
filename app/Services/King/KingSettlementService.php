@@ -65,7 +65,7 @@ class KingSettlementService
             return ['ok' => false, 'reason' => 'Game Challenge already accepted'];
         }
 
-        $fee = (float) $challenge->amount;
+        $fee = $challenge->entryStakeAmount();
         $debited = false;
 
         DB::transaction(function () use ($challenge, $joiner, $fee, &$debited) {
@@ -85,7 +85,7 @@ class KingSettlementService
             // and King's confirmation. The King table is already "Start", so
             // cancel it on the network and locally.
             KingEventLog::write('sys', 'KingAcceptRequest', 'warning',
-                "Accept confirmed by King but user #{$joiner->id} had insufficient balance. Cancelling table {$challenge->king_table_id}.");
+                "Accept confirmed by King but user #{$joiner->id} had insufficient local balance (need {$fee}). Cancelling table {$challenge->king_table_id}.");
 
             app(KingOutboxService::class)->enqueueResult($challenge, $joiner->id, 'Cancel');
 
@@ -104,7 +104,7 @@ class KingSettlementService
 
         $challenge->opponent_id = $joiner->id;
         $challenge->opponent_amount = $fee;
-        $challenge->amount = $fee * 2; // same as the local accept flow: amount becomes the total pot
+        $challenge->amount = $fee * 2; // pot = 2 × entry
         $challenge->status = 1;
         $challenge->is_lock = 0;
         $challenge->save();
@@ -140,11 +140,11 @@ class KingSettlementService
             return;
         }
 
-        $fee = (float) $challenge->amount;
+        $fee = $challenge->entryStakeAmount();
 
         $challenge->opponent_id = $ghost->id;
         $challenge->opponent_amount = $fee;
-        $challenge->amount = $fee * 2; // same as the local accept flow: amount becomes the total pot
+        $challenge->amount = $fee * 2; // pot = 2 × entry
         $challenge->status = 1;
         $challenge->is_lock = 0;
         $challenge->save();

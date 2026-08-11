@@ -1006,9 +1006,15 @@ class ApiController extends Controller
                     return response()->json(['status' => false, 'message' => 'You are not allowed to accept. Challenge created by you.']);
                 }
 
-                $opponent_game_fee = $game_challenge->amount;
+                $opponent_game_fee = $game_challenge->entryStakeAmount();
                 $waitingDismiss = app(GameChallengeWaitingDismissService::class);
                 $insufficientBalance = false;
+
+                if ($opponent_game_fee <= 0) {
+                    unlock_game_challenge($game_challenge);
+
+                    return response()->json(['status' => false, 'message' => 'Invalid table amount. Please try another one.']);
+                }
 
                 # Dismiss waiting games (refunds), then debit accept stake on a fresh locked user row.
                 # Without reload, $user still holds pre-refund balances and save() overwrites the refund.
@@ -1029,7 +1035,8 @@ class ApiController extends Controller
                         return;
                     }
 
-                    if ($opponent_game_fee > $lockedUser->total_wallet_amount) {
+                    $available = (float) $lockedUser->game_wallet_amount + (float) $lockedUser->win_wallet_amount;
+                    if ($opponent_game_fee > $available) {
                         $insufficientBalance = true;
 
                         return;

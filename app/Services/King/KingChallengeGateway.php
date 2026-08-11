@@ -74,7 +74,17 @@ class KingChallengeGateway
             return ['status' => false, 'message' => 'Challenge creator is already in an active game.'];
         }
 
-        if ((float) $challenge->amount > (float) $user->total_wallet_amount) {
+        // Fresh balances from DB — auth() user can be stale mid-session.
+        $freshUser = User::query()->find($user->id) ?: $user;
+        $entryFee = $challenge->entryStakeAmount();
+
+        if ($entryFee <= 0) {
+            unlock_game_challenge($challenge);
+
+            return ['status' => false, 'message' => 'Invalid table amount. Please try another one.'];
+        }
+
+        if ($entryFee > (float) $freshUser->total_wallet_amount) {
             unlock_game_challenge($challenge);
 
             return ['status' => false, 'message' => 'Insufficient Balance'];
@@ -86,7 +96,7 @@ class KingChallengeGateway
             return ['status' => false, 'message' => 'Game Status updating please wait.....'];
         }
 
-        $row = $this->outbox->enqueueAccept($challenge, $user);
+        $row = $this->outbox->enqueueAccept($challenge, $freshUser);
 
         # Wait for the daemon to confirm with the King server (bounded).
         $deadline = microtime(true) + max(2, (int) config('king.accept_timeout', 8));
@@ -125,9 +135,9 @@ class KingChallengeGateway
             if (in_array($status, [KingOutbox::STATUS_FAILED, KingOutbox::STATUS_SKIPPED], true)) {
                 unlock_game_challenge($challenge);
 
-                $message = (is_object($row) ? ($row->error ?? null) : ($row['error'] ?? null)) ?: 'This table is no longer available.';
+                $raw = (is_object($row) ? ($row->error ?? null) : ($row['error'] ?? null)) ?: '';
 
-                return ['status' => false, 'message' => $message];
+                return ['status' => false, 'message' => $this->mapKingAcceptError((string) $raw)];
             }
         }
 
@@ -389,6 +399,31 @@ class KingChallengeGateway
             KingEventLog::write('sys', 'ResultUpdateRequest', 'info',
                 "Cancel queued for challenge #{$challenge->id} on {$tableId}", $row->payloadArray());
         }
+    }
+
+    /**
+     * Daddy King sometimes rejects accepts with a platform-wallet message that
+     * looks like the player's wallet is empty. Remap so the app shows the truth.
+     */
+    private function mapKingAcceptError(string $message): string
+    {
+        $lower = strtolower(trim($message));
+        if ($lower === '') {
+            return 'This table is no longer available.';
+        }
+
+        if (
+            str_contains($lower, 'sufficient amount')
+            || str_contains($lower, 'insufficient')
+            || str_contains($lower, 'not enough')
+        ) {
+            KingEventLog::write('sys', 'KingAcceptRequest', 'warning',
+                'King network rejected accept (platform/network balance), not local user wallet: '.$message);
+
+            return 'This cross-platform table is temporarily unavailable. Please try another table.';
+        }
+
+        return $message;
     }
 
     private function shouldSyncChallengeToKing(GameChallenge $challenge): bool
