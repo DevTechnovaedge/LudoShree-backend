@@ -94,7 +94,11 @@ class UserResource extends JsonResource
                 "game_win_count"        => $this->game_win_count,
                 "game_lose_count"        => $this->game_lose_count,
                 
-                "total_generated_refer_amount"        => $this->generated_refer_commission_amount ?? 0,
+                "total_generated_refer_amount" => round((float) (
+                    $this->resource->getAttributes()['total_generated_refer_amount']
+                    ?? $this->generated_refer_commission_amount
+                    ?? 0
+                ), 2),
                 "kyc_status"            => $this->kyc_status,
                 "kyc_status_label"      => $this->kyc_status_label,
 

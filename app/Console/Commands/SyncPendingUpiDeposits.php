@@ -29,7 +29,7 @@ class SyncPendingUpiDeposits extends Command
                     });
             })
             ->orderBy('id')
-            ->limit(40)
+            ->limit(80)
             ->pluck('txn_id');
 
         if ($txnIds->isEmpty()) {
@@ -41,7 +41,7 @@ class SyncPendingUpiDeposits extends Command
 
         foreach ($txnIds as $txnId) {
             try {
-                $gateway->syncStatus((string) $txnId, 0);
+                $gateway->syncStatus((string) $txnId, 2);
                 $synced++;
             } catch (\Throwable $e) {
                 Log::error('[UPI Gateway] scheduled pending sync failed', [

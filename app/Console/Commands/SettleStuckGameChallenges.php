@@ -18,9 +18,9 @@ class SettleStuckGameChallenges extends Command
         $rows = GameChallenge::query()
             ->where(function ($q): void {
                 $q->where(function ($stuckCancel): void {
-                    $stuckCancel->where('status', 2)
-                        ->where('challenger_status', 3)
-                        ->where('opponent_status', 3);
+                    $stuckCancel->where('challenger_status', 3)
+                        ->where('opponent_status', 3)
+                        ->whereNotIn('status', [4, 6, 7]);
                 })->orWhere(function ($stuckResult): void {
                     $stuckResult->whereIn('status', [1, 2, 5, 8])
                         ->where(function ($sides): void {

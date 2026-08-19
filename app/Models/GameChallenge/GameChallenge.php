@@ -164,7 +164,11 @@ class GameChallenge extends Model
      */
     public function canShowAdminActionButton(): bool
     {
-        if ((int) $this->status === 4) {
+        if (in_array((int) $this->status, [3, 4, 6, 7], true)) {
+            return false;
+        }
+
+        if ((int) $this->challenger_status === 3 && (int) $this->opponent_status === 3) {
             return false;
         }
 
@@ -235,7 +239,9 @@ class GameChallenge extends Model
         elseif ($this->status == 2) :
             $status_label = 'Cancel';
         elseif ($this->status == 3) :
-            $status_label = 'Uncomplete';
+            $status_label = ((int) $this->challenger_status === 3 && (int) $this->opponent_status === 3)
+                ? 'Cancelled'
+                : 'Uncomplete';
         elseif ($this->status == 4) :
             $status_label = 'Complete';
         elseif ($this->status == 5) :
@@ -293,7 +299,7 @@ class GameChallenge extends Model
             $q->where('challenger_id', $userId)->orWhere('opponent_id', $userId);
         })
             ->whereNotNull('opponent_id')
-            ->whereNotIn('status', [2, 4, 6, 7])
+            ->whereNotIn('status', [2, 3, 4, 6, 7])
             ->where(function ($q) {
                 $q->whereNull('challenger_status')->orWhere('challenger_status', '!=', 3);
             })
@@ -371,8 +377,7 @@ class GameChallenge extends Model
             $game_details    .=     "<div class='py-1'>Closed: $this->closed_at</div>";
         endif;
         
-        # Action Button — same win/cancel/suspend modal as local games; King sync
-        # happens after save via ResultUpdateRequest (no separate DK action path).
+        # Action Button — hide once the match is complete / cancelled.
         if( $this->status != 4 ):
 
             $action_btn = $this->canShowAdminActionButton()

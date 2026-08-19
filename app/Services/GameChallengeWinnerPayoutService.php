@@ -21,7 +21,7 @@ class GameChallengeWinnerPayoutService
 
         $win_amount = $game_challenge->paid_amount;
 
-        $challenger = User::find($game_challenge->challenger_id);
+        $challenger = User::query()->withoutGlobalScopes()->find($game_challenge->challenger_id);
         if (!$challenger) {
             return;
         }
@@ -128,7 +128,7 @@ class GameChallengeWinnerPayoutService
 
         $win_amount = $game_challenge->paid_amount;
 
-        $opponent = User::find($game_challenge->opponent_id);
+        $opponent = User::query()->withoutGlobalScopes()->find($game_challenge->opponent_id);
         if (!$opponent) {
             return;
         }

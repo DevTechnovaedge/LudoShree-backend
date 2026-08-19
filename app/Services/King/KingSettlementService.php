@@ -309,7 +309,7 @@ class KingSettlementService
                     // Mutual cancel (or never started) -> refund local stakes.
                     $challenge->challenger_status = 3;
                     $challenge->opponent_status = 3;
-                    $challenge->status = 3;
+                    $challenge->status = 7;
                     $challenge->closed_at = now();
                     $challenge->is_lock = 0;
                     $challenge->save();

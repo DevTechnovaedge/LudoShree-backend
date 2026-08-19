@@ -9,6 +9,7 @@ use App\Models\GameChallenge\Transaction;
 use App\Models\GameChallenge\Wallet;
 use App\Models\User;
 use App\Services\LkGameApiService;
+use App\Services\GameChallengeLkApiSubmitResolver;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -251,27 +252,48 @@ class AdminController extends Controller
     }
 
     $result_data = $lk->normalizeForChallenge($raw);
-    $game_status = $result_data->game_status ?? '';
+    $game_status = (string) ($result_data->game_status ?? $result_data->status ?? '');
+
+    $gameUid = trim((string) request()->game_uid);
+    $challenge = GameChallenge::query()
+      ->where(function ($q) use ($ludo_king_game_id, $gameUid): void {
+          $q->where('ludo_king_game_id', $ludo_king_game_id)
+            ->orWhere('roomcode', $ludo_king_game_id);
+          if ($gameUid !== '') {
+              $q->orWhere('uid', $gameUid);
+          }
+      })
+      ->orderByDesc('id')
+      ->first();
+
+    $autoSettled = false;
+    if ($challenge && $lk->winnerSide($raw) !== null) {
+      $autoSettled = app(GameChallengeLkApiSubmitResolver::class)->settleFromOfficialApi($challenge);
+      $challenge->refresh();
+    }
 
     $view = '';
     $winner_status = '';
 
-    if ($game_status === 'Finished' || $game_status === 'Destroyed') {
+    if ($challenge) {
+      GameChallenge::whereKey($challenge->id)->update([
+        'ludo_king_result_details' => json_encode($result_data),
+      ]);
+    } else {
       GameChallenge::where('ludo_king_game_id', $ludo_king_game_id)->update([
         'ludo_king_result_details' => json_encode($result_data),
       ]);
+    }
 
-      $game_challenge = GameChallenge::where('ludo_king_game_id', $ludo_king_game_id)->first();
+    $game_challenge = $challenge ?: GameChallenge::where('ludo_king_game_id', $ludo_king_game_id)->first();
 
-      if ($game_challenge && isset($result_data->winner_id, $result_data->creator_id, $result_data->player_id)) {
-        if ((string) $result_data->winner_id === (string) $result_data->creator_id) {
-          $challenger_name = $game_challenge->challenger->name ?? 'N/A';
-          $winner_status = "Challenger ( {$challenger_name} ) is Winner";
-        } elseif ((string) $result_data->winner_id === (string) $result_data->player_id) {
-          $opponent_name = $game_challenge->opponent->name ?? 'N/A';
-          $winner_status = "Opponent ( {$opponent_name} ) is Winner";
-        }
-      }
+    $winnerSide = $lk->winnerSide($raw);
+    if ($game_challenge && $winnerSide === 'challenger') {
+      $challenger_name = $game_challenge->challenger->name ?? 'N/A';
+      $winner_status = "Challenger ( {$challenger_name} ) is Winner";
+    } elseif ($game_challenge && $winnerSide === 'opponent') {
+      $opponent_name = $game_challenge->opponent->name ?? 'N/A';
+      $winner_status = "Opponent ( {$opponent_name} ) is Winner";
     }
 
     $creatorName = $result_data->creator_name ?? '';
@@ -286,10 +308,14 @@ class AdminController extends Controller
       $view .= "<div>Creator : {$creatorName} | Player : {$playerName}</div>";
     }
     $view .= "<div><b class='text-success'>{$winner_status}</b></div>";
+    if ($autoSettled) {
+      $view .= "<div class='text-success'><b>Wallet updated automatically from official result.</b></div>";
+    }
 
     return response()->json([
       'status' => true,
-      'message' => 'Result Found',
+      'message' => $autoSettled ? 'Result Found and game auto-settled' : 'Result Found',
+      'auto_settled' => $autoSettled,
       'view' => $view,
       'data' => $result_data,
     ]);

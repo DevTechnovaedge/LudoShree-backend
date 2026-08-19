@@ -352,14 +352,25 @@ class GameChallengeController extends Controller
             return response()->json(['status' => true, 'message' => 'Game auto-resolved from matching win/lose results']);
         }
 
-        if (! in_array($statusBefore, [3, 7], true)
-            && in_array((int) $game_challenge->status, [3, 7], true)) {
-            return response()->json(['status' => true, 'message' => 'Game auto-cancelled because both players cancelled']);
-        }
+        $bothCancelled = (int) $game_challenge->challenger_status === 3
+            && (int) $game_challenge->opponent_status === 3;
+        if ($bothCancelled || (int) $game_challenge->status === 7) {
+            $game_challenge->challenger_status = 3;
+            $game_challenge->opponent_status = 3;
+            $game_challenge->status = 7;
+            $game_challenge->closed_at = now();
+            $game_challenge->is_lock = 0;
+            $game_challenge->save();
+            app(\App\Services\GameChallengeStakeRefundService::class)->refundAllStakes($game_challenge);
 
-        if(($game_challenge->status == 3 && $game_challenge->challenger_status == 3 && $game_challenge->opponent_status == 3 ) || $game_challenge->status == 7):
-            return json_encode(['status' => false, 'message' => "Already cancelled"]);
-        endif;
+            try {
+                app(\App\Services\King\KingChallengeGateway::class)->afterAdminAction($game_challenge);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error('[King] admin result hook failed', ['error' => $e->getMessage()]);
+            }
+
+            return response()->json(['status' => true, 'message' => 'Game cancelled']);
+        }
         
         if($game_challenge->status == 4):
             return json_encode(['status' => false, 'message' => "Already completed"]);
@@ -409,6 +420,7 @@ class GameChallengeController extends Controller
                 $game_challenge->opponent_status = 3;
                 $game_challenge->challenger_status = 3;
                 $game_challenge->status = 7;
+                $game_challenge->closed_at = now();
                 app(\App\Services\GameChallengeStakeRefundService::class)->refundAllStakes($game_challenge);
                 break;
 

@@ -60,6 +60,23 @@ class LkGameApiService
         return $data;
     }
 
+    public function isCheckRoomValid(?object $check): bool
+    {
+        if (! $check) {
+            return false;
+        }
+
+        if ($this->lkBoolMeansTrue($check->valid ?? null)) {
+            return true;
+        }
+
+        if (isset($check->data) && is_object($check->data) && $this->lkBoolMeansTrue($check->data->valid ?? null)) {
+            return true;
+        }
+
+        return false;
+    }
+
     /**
      * Parsed game-status body (including API error payloads with status/msg on HTTP 400), or null on transport/useless body.
      */
@@ -90,6 +107,21 @@ class LkGameApiService
             return null;
         }
 
+        return $this->unwrapGamePayload($data);
+    }
+
+    /**
+     * Some LK gateways wrap the match payload in data/result.
+     */
+    public function unwrapGamePayload(object $data): object
+    {
+        foreach (['data', 'result', 'game', 'payload'] as $key) {
+            if (isset($data->{$key}) && is_object($data->{$key})
+                && (isset($data->{$key}->game_id) || isset($data->{$key}->game_status) || isset($data->{$key}->winner_id))) {
+                return $data->{$key};
+            }
+        }
+
         return $data;
     }
 
@@ -114,9 +146,42 @@ class LkGameApiService
             return null;
         }
 
-        $gid = isset($room->game_id) ? trim((string) $room->game_id) : '';
-        if (preg_match('/^[a-f\d]{24}$/i', $gid)) {
-            return strtolower($gid);
+        return $this->extractMongoGameId($room);
+    }
+
+    /**
+     * Find a 24-hex LK game id anywhere in a check-room / status payload.
+     */
+    public function extractMongoGameId(?object $payload): ?string
+    {
+        if (! $payload) {
+            return null;
+        }
+
+        $queue = [$payload];
+        $seen = 0;
+        while ($queue !== [] && $seen < 10) {
+            $node = array_shift($queue);
+            $seen++;
+            if (! is_object($node)) {
+                continue;
+            }
+
+            foreach (['game_id', 'gameId', '_id', 'id'] as $k) {
+                if (! isset($node->{$k})) {
+                    continue;
+                }
+                $id = self::lkComparableId($node->{$k});
+                if ($id !== null && preg_match('/^[a-f\d]{24}$/i', $id)) {
+                    return strtolower($id);
+                }
+            }
+
+            foreach (['data', 'result', 'game', 'payload'] as $k) {
+                if (isset($node->{$k}) && is_object($node->{$k})) {
+                    $queue[] = $node->{$k};
+                }
+            }
         }
 
         return null;
@@ -174,8 +239,9 @@ class LkGameApiService
             return null;
         }
 
-        $gsNorm = strtolower(trim((string) ($resolvedPayload->game_status ?? '')));
-        if (! in_array($gsNorm, ['finished', 'destroyed'], true)) {
+        $gsNorm = strtolower(trim((string) ($resolvedPayload->game_status ?? $resolvedPayload->status ?? '')));
+        $inProgress = ['waiting', 'started', 'playing', 'ongoing', 'running', 'inprogress', 'in_progress', 'pending'];
+        if (in_array($gsNorm, $inProgress, true)) {
             return null;
         }
 
@@ -189,9 +255,9 @@ class LkGameApiService
      */
     private function creatorOrPlayerWonSideFromPayload(object $p): ?string
     {
-        $w = self::lkComparableId($p->winner_id ?? null);
-        $c = self::lkComparableId($p->creator_id ?? null);
-        $pl = self::lkComparableId($p->player_id ?? null);
+        $w = self::lkComparableId($p->winner_id ?? $p->winnerId ?? null);
+        $c = self::lkComparableId($p->creator_id ?? $p->creatorId ?? $p->owner_id ?? $p->ownerId ?? null);
+        $pl = self::lkComparableId($p->player_id ?? $p->playerId ?? $p->player1_id ?? $p->joiner_id ?? null);
 
         // LK semantics: creator wins match -> our challenger; player (joiner) wins -> our opponent
         if ($w !== null && $c !== null && $w === $c) {
@@ -202,28 +268,96 @@ class LkGameApiService
             return 'opponent';
         }
 
+        // Some payloads use 1/2 instead of mongo ids
+        if ($w === '1' || $w === 'player1' || $w === 'p1') {
+            return 'challenger';
+        }
+        if ($w === '2' || $w === 'player2' || $w === 'p2') {
+            return 'opponent';
+        }
+
+        $ownerStatus = strtolower(trim((string) ($p->ownerstatus ?? $p->owner_status ?? $p->creator_status ?? '')));
+        $playerStatus = strtolower(trim((string) ($p->player1status ?? $p->player_status ?? $p->player1_status ?? '')));
+        if (in_array($ownerStatus, ['won', 'win', 'winner'], true)) {
+            return 'challenger';
+        }
+        if (in_array($playerStatus, ['won', 'win', 'winner'], true)) {
+            return 'opponent';
+        }
+
+        $side = $this->winnerFromPlayersList($p);
+        if ($side !== null) {
+            return $side;
+        }
+
         // Explicit role hints (still no backend user coupling)
         $roleFields = [$p->winner_side ?? null, $p->winnerSide ?? null, $p->winner_role ?? null, $p->winning_side ?? null, $p->winner_type ?? null];
         foreach ($roleFields as $raw) {
-            $side = $this->lkRoleHintToChallengeSide($raw);
-            if ($side !== null) {
-                return $side;
+            $mapped = $this->lkRoleHintToChallengeSide($raw);
+            if ($mapped !== null) {
+                return $mapped;
             }
         }
 
         if (isset($p->winner) && ! is_object($p->winner)) {
-            $side = $this->lkRoleHintToChallengeSide($p->winner);
-            if ($side !== null) {
-                return $side;
+            $mapped = $this->lkRoleHintToChallengeSide($p->winner);
+            if ($mapped !== null) {
+                return $mapped;
+            }
+            $mapped = $this->lkRoleHintToChallengeSide((string) $p->winner);
+            if ($mapped !== null) {
+                return $mapped;
             }
         }
 
-        if ($this->lkBoolMeansTrue($p->creator_win ?? null)) {
+        if ($this->lkBoolMeansTrue($p->creator_win ?? null) || $this->lkBoolMeansTrue($p->owner_win ?? null)) {
             return 'challenger';
         }
 
-        if ($this->lkBoolMeansTrue($p->player_win ?? null)) {
+        if ($this->lkBoolMeansTrue($p->player_win ?? null) || $this->lkBoolMeansTrue($p->player1_win ?? null)) {
             return 'opponent';
+        }
+
+        return null;
+    }
+
+    /**
+     * @return 'challenger'|'opponent'|null
+     */
+    private function winnerFromPlayersList(object $p): ?string
+    {
+        $players = $p->players ?? $p->player_list ?? null;
+        if (! is_array($players) && ! is_object($players)) {
+            return null;
+        }
+
+        foreach ($players as $player) {
+            if (is_array($player)) {
+                $player = (object) $player;
+            }
+            if (! is_object($player)) {
+                continue;
+            }
+            $won = $this->lkBoolMeansTrue($player->is_winner ?? $player->winner ?? $player->win ?? null)
+                || in_array(strtolower(trim((string) ($player->status ?? $player->result ?? ''))), ['won', 'win', 'winner'], true);
+            if (! $won) {
+                continue;
+            }
+
+            $role = $this->lkRoleHintToChallengeSide($player->role ?? $player->type ?? $player->side ?? null);
+            if ($role !== null) {
+                return $role;
+            }
+
+            $pid = self::lkComparableId($player->id ?? $player->_id ?? $player->player_id ?? null);
+            $c = self::lkComparableId($p->creator_id ?? $p->creatorId ?? null);
+            $pl = self::lkComparableId($p->player_id ?? $p->playerId ?? null);
+            if ($pid !== null && $c !== null && $pid === $c) {
+                return 'challenger';
+            }
+            if ($pid !== null && $pl !== null && $pid === $pl) {
+                return 'opponent';
+            }
         }
 
         return null;
@@ -252,11 +386,11 @@ class LkGameApiService
             return null;
         }
 
-        if (in_array($s, ['creator', 'challenger', 'owner', 'host', 'room_creator', 'creator_id'], true)) {
+        if (in_array($s, ['creator', 'challenger', 'owner', 'host', 'room_creator', 'creator_id', 'player1', 'p1', '1'], true)) {
             return 'challenger';
         }
 
-        if (in_array($s, ['player', 'joiner', 'opponent', 'guest', 'participant', 'player_id', 'room_player'], true)) {
+        if (in_array($s, ['player', 'joiner', 'opponent', 'guest', 'participant', 'player_id', 'room_player', 'player2', 'p2', '2'], true)) {
             return 'opponent';
         }
 
@@ -286,20 +420,17 @@ class LkGameApiService
         $gs = $out->game_status ?? null;
         $out->status = $out->status ?? $gs;
         $out->game_status = $gs;
-        $gsNorm = strtolower(trim((string) ($gs ?? '')));
 
-        if (in_array($gsNorm, ['finished', 'destroyed'], true)) {
-            $side = $this->creatorOrPlayerWonSideFromPayload($out);
-            if ($side === 'challenger') {
-                $out->ownerstatus = 'Won';
-                $out->player1status = 'Lost';
-                $out->lk_winner_mapped_to = 'creator';
-            }
-            if ($side === 'opponent') {
-                $out->ownerstatus = 'Lost';
-                $out->player1status = 'Won';
-                $out->lk_winner_mapped_to = 'player';
-            }
+        $side = $this->creatorOrPlayerWonSideFromPayload($out);
+        if ($side === 'challenger') {
+            $out->ownerstatus = 'Won';
+            $out->player1status = 'Lost';
+            $out->lk_winner_mapped_to = 'creator';
+        }
+        if ($side === 'opponent') {
+            $out->ownerstatus = 'Lost';
+            $out->player1status = 'Won';
+            $out->lk_winner_mapped_to = 'player';
         }
 
         return $out;

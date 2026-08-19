@@ -10,13 +10,11 @@ use App\Models\GameChallenge\Wallet;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 /**
  * When LK Game API reports a finished game (creator vs player winner_id), settle from that payload.
- * Hooked into player actions: winner and loser only when the match is not in cancel/dispute.
- * Cancel and any win/lose after a cancel are handled by admin (no LK game-status call).
- *
- * Returns null when the API is unavailable / game not terminal / refunds already processed → unchanged manual & admin flows.
+ * Used from player win/lose, admin View Result, and the scheduled sync command.
  */
 class GameChallengeLkApiSubmitResolver
 {
@@ -31,109 +29,9 @@ class GameChallengeLkApiSubmitResolver
             return null;
         }
 
-        if (! $game_challenge->roomcode || ! $game_challenge->opponent_id) {
-            return null;
-        }
+        $settled = $this->settleFromOfficialApi($game_challenge);
 
-        if ($this->isCancelFlowForAdmin($game_challenge)) {
-            return null;
-        }
-
-        // Let normal / admin flow handle fully completed, suspended, or challenge-cancelled rows
-        if (in_array((int) $game_challenge->status, [4, 6, 7], true)) {
-            return null;
-        }
-
-        if ($this->fundsAlreadyRefunded($game_challenge)) {
-            return null;
-        }
-
-        if ($this->lk->apiKey() === '' || $this->lk->baseUrl() === '') {
-            return null;
-        }
-
-        $stored = trim((string) ($game_challenge->ludo_king_game_id ?? ''));
-        $fallbackRoom = trim((string) ($game_challenge->roomcode ?? ''));
-        if ($stored === '' && $fallbackRoom === '') {
-            return null;
-        }
-
-        $gameId = $this->lk->resolveGameId($stored);
-        if ($gameId === null && $fallbackRoom !== '' && $fallbackRoom !== $stored) {
-            $gameId = $this->lk->resolveGameId($fallbackRoom);
-        }
-        if ($gameId === null) {
-            return null;
-        }
-
-        $raw = $this->lk->gameStatus($gameId);
-        if ($raw === null) {
-            return null;
-        }
-
-        if (! isset($raw->game_id) && isset($raw->msg)) {
-            return null;
-        }
-
-        // HTTP error payloads with numeric status (still let success bodies that include game_id + status through)
-        if (! isset($raw->game_id) && isset($raw->status) && is_numeric($raw->status ?? null)) {
-            return null;
-        }
-
-        if (! $this->lk->isResolvedFinished($raw)) {
-            return null;
-        }
-
-        $winnerSide = $this->lk->winnerSide($raw);
-        if ($winnerSide === null) {
-            return null;
-        }
-
-        $normalizedForStorage = json_encode($this->lk->normalizeForChallenge($raw));
-
-        $applied = false;
-
-        DB::transaction(function () use ($game_challenge, $normalizedForStorage, $winnerSide, &$applied): void {
-            /** @var GameChallenge|null $gc */
-            $gc = GameChallenge::with(['challenger', 'opponent'])->lockForUpdate()->find($game_challenge->id);
-            if (! $gc) {
-                return;
-            }
-
-            if (in_array((int) $gc->status, [4, 6, 7], true)) {
-                return;
-            }
-
-            if ($this->isCancelFlowForAdmin($gc)) {
-                return;
-            }
-
-            if ($this->fundsAlreadyRefunded($gc)) {
-                return;
-            }
-
-            $gc->ludo_king_result_details = $normalizedForStorage;
-
-            $alreadyPaid = $this->hasMainWinnerCredit($gc);
-
-            if (! $alreadyPaid) {
-                if ($winnerSide === 'challenger') {
-                    $this->payout->awardChallengerWin($gc);
-                } else {
-                    $this->payout->awardOpponentWin($gc);
-                }
-            } else {
-                $this->applyResultSidesFromWinner($gc, $winnerSide);
-            }
-
-            $gc->is_lock = 0;
-            $gc->closed_at = date('Y-m-d H:i:s');
-
-            $gc->save();
-            $applied = true;
-        });
-
-        if (! $applied) {
+        if (! $settled) {
             $fresh = GameChallenge::find($game_challenge->id);
             if ($fresh && (int) $fresh->status === 4) {
                 return response()->json([
@@ -148,7 +46,7 @@ class GameChallengeLkApiSubmitResolver
         event(new DemoEvent(''));
 
         $freshChallenge = GameChallenge::with(['challenger', 'opponent'])->find($game_challenge->id);
-        $freshUser = User::find($user->id);
+        $freshUser = User::query()->withoutGlobalScopes()->find($user->id);
 
         return response()->json([
             'status' => true,
@@ -160,7 +58,191 @@ class GameChallengeLkApiSubmitResolver
     }
 
     /**
-     * @param 'challenger'|'opponent' $winnerSide
+     * Fetch official LK result and close the challenge when a winner is known.
+     * Safe to call from cron / admin (idempotent).
+     */
+    public function settleFromOfficialApi(GameChallenge $game_challenge): bool
+    {
+        if ($game_challenge->isKingLinked()) {
+            return false;
+        }
+
+        if (! $game_challenge->roomcode || ! $game_challenge->opponent_id) {
+            return false;
+        }
+
+        if ($this->isCancelFlowForAdmin($game_challenge)) {
+            return false;
+        }
+
+        if (in_array((int) $game_challenge->status, [4, 6, 7], true)) {
+            return false;
+        }
+
+        if ($this->fundsAlreadyRefunded($game_challenge)) {
+            return false;
+        }
+
+        if ($this->lk->apiKey() === '' || $this->lk->baseUrl() === '') {
+            Log::info('[LK auto-settle] skipped: API not configured', [
+                'uid' => $game_challenge->uid,
+            ]);
+
+            return false;
+        }
+
+        $fetched = $this->fetchOfficialFinishedResult($game_challenge);
+        if ($fetched === null) {
+            return false;
+        }
+
+        $raw = $fetched['raw'];
+        $winnerSide = $fetched['side'];
+        $gameId = $fetched['game_id'];
+
+        $normalizedForStorage = json_encode($this->lk->normalizeForChallenge($raw));
+        $applied = false;
+
+        DB::transaction(function () use ($game_challenge, $normalizedForStorage, $winnerSide, $gameId, &$applied): void {
+            /** @var GameChallenge|null $gc */
+            $gc = GameChallenge::query()->lockForUpdate()->find($game_challenge->id);
+            if (! $gc) {
+                return;
+            }
+
+            if (in_array((int) $gc->status, [4, 6, 7], true)) {
+                return;
+            }
+
+            if ($this->isCancelFlowForAdmin($gc) || $this->fundsAlreadyRefunded($gc)) {
+                return;
+            }
+
+            $gc->ludo_king_result_details = $normalizedForStorage;
+            if (preg_match('/^[a-f\d]{24}$/i', $gameId)) {
+                $gc->ludo_king_game_id = strtolower($gameId);
+            }
+
+            $alreadyPaid = $this->hasMainWinnerCredit($gc);
+
+            if (! $alreadyPaid) {
+                if ($winnerSide === 'challenger') {
+                    $this->payout->awardChallengerWin($gc);
+                } else {
+                    $this->payout->awardOpponentWin($gc);
+                }
+            }
+
+            $this->applyResultSidesFromWinner($gc, $winnerSide);
+
+            $winnerId = $winnerSide === 'challenger' ? $gc->challenger_id : $gc->opponent_id;
+            $winner = User::query()->withoutGlobalScopes()->find($winnerId);
+            if ($winner) {
+                $this->payout->creditWinnerIfMissing($gc, $winner);
+            }
+
+            $gc->is_lock = 0;
+            $gc->closed_at = now();
+            $gc->save();
+            $applied = (int) $gc->status === 4;
+        });
+
+        if ($applied) {
+            Log::info('[LK auto-settle] closed from official result', [
+                'uid' => $game_challenge->uid,
+                'winner_side' => $winnerSide,
+                'game_id' => $gameId,
+            ]);
+        }
+
+        return $applied;
+    }
+
+    /**
+     * Try stored mongo id AND room-code lookup. A stale hex id is the usual
+     * reason some games skip auto-settle while others work.
+     *
+     * @return array{raw: object, side: string, game_id: string}|null
+     */
+    private function fetchOfficialFinishedResult(GameChallenge $game_challenge): ?array
+    {
+        $ids = $this->candidateOfficialGameIds($game_challenge);
+        if ($ids === []) {
+            Log::info('[LK auto-settle] skipped: could not resolve game id', [
+                'uid' => $game_challenge->uid,
+                'stored' => $game_challenge->ludo_king_game_id,
+                'roomcode' => $game_challenge->roomcode,
+            ]);
+
+            return null;
+        }
+
+        $lastRaw = null;
+        $lastId = null;
+
+        foreach ($ids as $gameId) {
+            $raw = $this->lk->gameStatus($gameId);
+            if ($raw === null) {
+                continue;
+            }
+
+            $lastRaw = $raw;
+            $lastId = $gameId;
+
+            if (! isset($raw->game_id) && (isset($raw->msg) || (isset($raw->status) && is_numeric($raw->status ?? null)))) {
+                continue;
+            }
+
+            $side = $this->lk->winnerSide($raw);
+            if ($side !== null) {
+                return ['raw' => $raw, 'side' => $side, 'game_id' => $gameId];
+            }
+        }
+
+        Log::info('[LK auto-settle] skipped: winner not ready', [
+            'uid' => $game_challenge->uid,
+            'tried_ids' => $ids,
+            'last_game_id' => $lastId,
+            'game_status' => is_object($lastRaw) ? ($lastRaw->game_status ?? $lastRaw->status ?? null) : null,
+            'body_excerpt' => is_object($lastRaw) ? substr((string) json_encode($lastRaw), 0, 1200) : null,
+        ]);
+
+        return null;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function candidateOfficialGameIds(GameChallenge $game_challenge): array
+    {
+        $stored = trim((string) ($game_challenge->ludo_king_game_id ?? ''));
+        $room = trim((string) ($game_challenge->roomcode ?? ''));
+        $out = [];
+
+        $push = static function (?string $id) use (&$out): void {
+            $id = $id !== null ? strtolower(trim($id)) : '';
+            if ($id !== '' && ! in_array($id, $out, true)) {
+                $out[] = $id;
+            }
+        };
+
+        if (preg_match('/^[a-f\d]{24}$/i', $stored)) {
+            $push($stored);
+        }
+
+        if ($room !== '') {
+            $push($this->lk->resolveGameId($room));
+        }
+
+        if ($stored !== '' && $stored !== $room && ! preg_match('/^[a-f\d]{24}$/i', $stored)) {
+            $push($this->lk->resolveGameId($stored));
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param  'challenger'|'opponent'  $winnerSide
      */
     private function applyResultSidesFromWinner(GameChallenge $gc, string $winnerSide): void
     {
@@ -175,15 +257,17 @@ class GameChallengeLkApiSubmitResolver
     }
 
     /**
-     * Cancel / dispute paths: never auto-settle from LK (admin decides).
+     * Fully cancelled / refunded games stay with admin. Dispute and one-sided
+     * cancel can still be closed from the official LK result.
      */
     private function isCancelFlowForAdmin(GameChallenge $gc): bool
     {
-        if ((int) ($gc->challenger_status ?? 0) === 3 || (int) ($gc->opponent_status ?? 0) === 3) {
+        if (in_array((int) $gc->status, [3, 6, 7], true)) {
             return true;
         }
 
-        return in_array((int) $gc->status, [2, 3, 5, 7], true);
+        return (int) ($gc->challenger_status ?? 0) === 3
+            && (int) ($gc->opponent_status ?? 0) === 3;
     }
 
     private function hasMainWinnerCredit(GameChallenge $gc): bool
@@ -195,7 +279,9 @@ class GameChallengeLkApiSubmitResolver
             ->where('type', 'credit')
             ->where(function ($q) use ($uid) {
                 $q->where('remark', 'Winner Ref: '.$uid)
-                    ->orWhere('remark', 'Winner amount Ref: '.$uid);
+                    ->orWhere('remark', 'Winner amount Ref: '.$uid)
+                    ->orWhere('remark', 'like', 'Winner amount Ref:%'.$uid.'%')
+                    ->orWhere('remark', 'like', 'Winner Ref:%'.$uid.'%');
             })
             ->exists();
     }

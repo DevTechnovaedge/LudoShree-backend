@@ -96,6 +96,8 @@ Route::get('play-online', function () {
 });
 
 Route::get('cron', function () {
+    // Always reconcile QR deposits even if schedule mutex skipped the command.
+    Artisan::call('upi:sync-pending-deposits');
     Artisan::call('schedule:run');
 
     return 'Worked';

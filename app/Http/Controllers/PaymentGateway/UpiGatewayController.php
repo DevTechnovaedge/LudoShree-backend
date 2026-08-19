@@ -46,7 +46,19 @@ class UpiGatewayController extends Controller
     {
         $pi = (string) $transaction->payment_info;
         if (preg_match('/Order\s*ID\s*:\s*([^\s|]+)/i', $pi, $m)) {
-            return trim($m[1]);
+            $id = trim($m[1]);
+            if ($id !== '') {
+                return $id;
+            }
+        }
+
+        $fromMirror = GatewayPayment::query()
+            ->where('client_txn_id', $transaction->txn_id)
+            ->where('provider', 'ekqr')
+            ->value('gateway_order_id');
+
+        if (is_string($fromMirror) && trim($fromMirror) !== '') {
+            return trim($fromMirror);
         }
 
         return null;
@@ -115,7 +127,8 @@ class UpiGatewayController extends Controller
             return ['status' => false, 'message' => 'User not found for deposit'];
         }
 
-        $response = Http::acceptJson()->post(self::BASE_URL . '/create_order', [
+        try {
+            $response = Http::acceptJson()->timeout(20)->post(self::BASE_URL . '/create_order', [
             'key'             => $key,
             'client_txn_id'   => $transaction->txn_id,
             'amount'          => $this->formatGatewayAmount($transaction->amount),
@@ -130,7 +143,15 @@ class UpiGatewayController extends Controller
             'udf1'            => (string) $user->id,
             'udf2'            => (string) $transaction->id,
             'udf3'            => 'wallet_deposit',
-        ]);
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('[UPI Gateway] create_order HTTP exception', [
+                'client_txn_id' => $transaction->txn_id,
+                'error'         => $e->getMessage(),
+            ]);
+
+            return ['status' => false, 'message' => 'UPI Gateway timed out. Please try again.'];
+        }
 
         $raw = $response->body();
         Log::info('[UPI Gateway] create_order HTTP response', [
@@ -142,7 +163,7 @@ class UpiGatewayController extends Controller
             'body_excerpt'            => substr($raw, 0, 2000),
         ]);
 
-        $body = $response->json() ?? [];
+        $body = $this->decodeGatewayJsonBody($raw, $response->json());
 
         if (! $this->gatewayEnvelopeOk($body)) {
             Log::warning('[UPI Gateway] create_order rejected by provider', $body);
@@ -188,23 +209,43 @@ class UpiGatewayController extends Controller
      */
     public function webhook(Request $request)
     {
-        if (! $this->verifyWebhookRequest($request)) {
-            Log::warning('[UPI Gateway] webhook rejected: verification failed', [
-                'ip' => $request->ip(),
-            ]);
-
-            return response()->json(['status' => false, 'message' => 'Unauthorized'], 401);
-        }
-
+        $verified = $this->verifyWebhookRequest($request);
         $payload = $this->inboundGatewayPayload($request);
 
         $clientRaw = $payload['client_txn_id']
             ?? $payload['clientTxnId']
+            ?? $payload['client_ref_id']
             ?? data_get($payload, 'data.client_txn_id');
         $clientTxnId = is_scalar($clientRaw) ? trim((string) $clientRaw) : '';
 
+        if ($clientTxnId === '') {
+            $udf2 = $payload['udf2'] ?? data_get($payload, 'data.udf2');
+            if (is_numeric($udf2)) {
+                $byUdf = Transaction::query()->whereKey((int) $udf2)->first();
+                if ($byUdf && (string) $byUdf->transfer_type === 'deposit') {
+                    $clientTxnId = (string) $byUdf->txn_id;
+                }
+            }
+        }
+
+        if ($clientTxnId === '') {
+            $orderRaw = $payload['id'] ?? $payload['order_id'] ?? data_get($payload, 'data.id');
+            $orderId = is_scalar($orderRaw) ? trim((string) $orderRaw) : '';
+            if ($orderId !== '') {
+                $gp = GatewayPayment::query()
+                    ->where('provider', 'ekqr')
+                    ->where('gateway_order_id', $orderId)
+                    ->orderByDesc('id')
+                    ->first();
+                if ($gp && $gp->client_txn_id) {
+                    $clientTxnId = (string) $gp->client_txn_id;
+                }
+            }
+        }
+
         Log::info('[UPI Gateway] webhook inbound', [
             'ip'             => $request->ip(),
+            'verified'       => $verified,
             'content_type'   => $request->header('Content-Type'),
             'client_txn_id'  => $clientTxnId !== '' ? $clientTxnId : '(missing)',
             'payload_keys'   => array_keys($payload),
@@ -212,6 +253,20 @@ class UpiGatewayController extends Controller
             'provider_order_id' => $payload['id'] ?? $payload['order_id'] ?? null,
             'payload_json'   => substr(json_encode($payload, JSON_UNESCAPED_UNICODE), 0, 3500),
         ]);
+
+        if (! $verified) {
+            Log::warning('[UPI Gateway] webhook verification failed; reconciling via check_order_status', [
+                'ip' => $request->ip(),
+                'client_txn_id' => $clientTxnId !== '' ? $clientTxnId : '(missing)',
+            ]);
+            if ($clientTxnId !== '') {
+                $this->syncStatus($clientTxnId, 2);
+
+                return response()->json(['status' => true]);
+            }
+
+            return response()->json(['status' => false, 'message' => 'Unauthorized'], 401);
+        }
 
         if ($clientTxnId === '') {
             Log::warning('[UPI Gateway] webhook rejected: client_txn_id missing');
@@ -234,6 +289,10 @@ class UpiGatewayController extends Controller
 
         $hookStatus = $this->resolvePaymentStatusFromPayload($payload);
         $upiTxnId = $this->extractUtr($payload);
+
+        if ($this->shouldCreditAsPaid($hookStatus, $upiTxnId)) {
+            $hookStatus = 'success';
+        }
 
         $hasDefinitiveHook = $hookStatus !== ''
             && ($this->isGatewaySuccessStatus($hookStatus) || $this->isGatewayFailureStatus($hookStatus));
@@ -271,7 +330,7 @@ class UpiGatewayController extends Controller
         }
 
         Log::info('[UPI Gateway] webhook falling back to check_order_status', ['client_txn_id' => $clientTxnId]);
-        $this->syncStatus($clientTxnId);
+        $this->syncStatus($clientTxnId, 2);
 
         return response()->json(['status' => true]);
     }
@@ -419,19 +478,13 @@ class UpiGatewayController extends Controller
         $istNow = Carbon::now('Asia/Kolkata');
         $out[] = $istNow->format('d-m-Y');
         $out[] = $istNow->copy()->subDay()->format('d-m-Y');
-        $out[] = $istNow->copy()->addDay()->format('d-m-Y');
 
-        foreach (['Asia/Kolkata', (string) (config('app.timezone') ?: 'UTC'), 'UTC'] as $tz) {
-            if (! is_string($tz) || $tz === '') {
-                continue;
-            }
-            try {
-                $local = $created->copy()->timezone($tz);
-                $out[] = $local->format('d-m-Y');
-                $out[] = $local->format('Y-m-d');
-            } catch (\Throwable $e) {
-                continue;
-            }
+        try {
+            $istCreated = $created->copy()->timezone('Asia/Kolkata');
+            $out[] = $istCreated->format('d-m-Y');
+            $out[] = $istCreated->format('Y-m-d');
+        } catch (\Throwable $e) {
+            // keep today/yesterday
         }
 
         return array_values(array_unique(array_filter($out)));
@@ -505,31 +558,17 @@ class UpiGatewayController extends Controller
             $payloads = $this->statusCheckPayloads($clientTxnId, $txnDate, $orderId);
 
             foreach ($payloads as $variantIdx => $postBody) {
-                $response = Http::acceptJson()->timeout(45)->post(self::BASE_URL.'/check_order_status', $postBody);
-
-                $raw = $response->body();
-                $body = $response->json() ?? [];
-
-                Log::info('[UPI Gateway] check_order_status HTTP', [
-                    'client_txn_id' => $clientTxnId,
-                    'txn_date'      => $txnDate,
-                    'variant'       => $variantIdx,
-                    'post_fields'   => array_merge(
-                        array_diff_key($postBody, ['key' => true]),
-                        ['key' => self::maskApiKey($postBody['key'] ?? '')]
-                    ),
-                    'http_status'   => $response->status(),
-                    'api_ok_flag'   => $this->gatewayEnvelopeOk($body),
-                    'api_msg'       => $body['msg'] ?? null,
-                    'body_excerpt'  => substr($raw, 0, 2200),
-                ]);
-
-                if (! $this->gatewayEnvelopeOk($body)) {
+                [$body, $raw] = $this->postCheckOrderStatus($postBody, $clientTxnId, $txnDate, $variantIdx);
+                if ($body === null) {
                     continue;
                 }
 
                 $remoteStatus = $this->resolvePaymentStatusFromPayload($body);
                 $upiTxnId = $this->extractUtr($body);
+
+                if ($this->shouldCreditAsPaid($remoteStatus, $upiTxnId)) {
+                    $remoteStatus = 'success';
+                }
 
                 Log::info('[UPI Gateway] check_order_status parsed', [
                     'client_txn_id'  => $clientTxnId,
@@ -608,7 +647,7 @@ class UpiGatewayController extends Controller
             }
 
             $remoteStatus = strtolower(trim($remoteStatus));
-            $isSuccess = $this->isGatewaySuccessStatus($remoteStatus);
+            $isSuccess = $this->shouldCreditAsPaid($remoteStatus, $upiTxnId);
             $isFailure = $this->isGatewayFailureStatus($remoteStatus);
 
             $this->mergeGatewayPaymentInfo($t, $upiTxnId);
@@ -852,6 +891,10 @@ class UpiGatewayController extends Controller
         if (is_array($data)) {
             $payload = array_merge($payload, $data);
         }
+        $result = $payload['result'] ?? null;
+        if (is_array($result)) {
+            $payload = array_merge($payload, $result);
+        }
 
         return $payload;
     }
@@ -930,6 +973,100 @@ class UpiGatewayController extends Controller
         ], true);
     }
 
+    /**
+     * @param  array<string, string>  $postBody
+     * @return array{0: ?array<string, mixed>, 1: string}
+     */
+    private function postCheckOrderStatus(array $postBody, string $clientTxnId, string $txnDate, int $variantIdx): array
+    {
+        $attempts = [
+            fn () => Http::acceptJson()->timeout(12)->post(self::BASE_URL.'/check_order_status', $postBody),
+            fn () => Http::asForm()->acceptJson()->timeout(12)->post(self::BASE_URL.'/check_order_status', $postBody),
+        ];
+
+        foreach ($attempts as $attemptIdx => $makeRequest) {
+            try {
+                $response = $makeRequest();
+            } catch (\Throwable $e) {
+                Log::warning('[UPI Gateway] check_order_status HTTP exception', [
+                    'client_txn_id' => $clientTxnId,
+                    'txn_date'      => $txnDate,
+                    'variant'       => $variantIdx,
+                    'attempt'       => $attemptIdx,
+                    'error'         => $e->getMessage(),
+                ]);
+                continue;
+            }
+
+            $raw = $response->body();
+            $body = $this->decodeGatewayJsonBody($raw, $response->json());
+
+            Log::info('[UPI Gateway] check_order_status HTTP', [
+                'client_txn_id' => $clientTxnId,
+                'txn_date'      => $txnDate,
+                'variant'       => $variantIdx,
+                'attempt'       => $attemptIdx,
+                'post_fields'   => array_merge(
+                    array_diff_key($postBody, ['key' => true]),
+                    ['key' => self::maskApiKey($postBody['key'] ?? '')]
+                ),
+                'http_status'   => $response->status(),
+                'api_ok_flag'   => $this->gatewayEnvelopeOk($body),
+                'api_msg'       => $body['msg'] ?? null,
+                'body_excerpt'  => substr($raw, 0, 2200),
+            ]);
+
+            if ($this->gatewayEnvelopeOk($body)) {
+                return [$body, $raw];
+            }
+        }
+
+        return [null, ''];
+    }
+
+    private function looksLikeUtr(string $utr): bool
+    {
+        $utr = strtoupper(preg_replace('/\s+/', '', $utr) ?? '');
+        $len = strlen($utr);
+        if ($len < 12 || $len > 22) {
+            return false;
+        }
+        if (in_array($utr, ['NA', 'N/A', 'NULL', 'NONE', 'PENDING', 'SCANNING', 'SUCCESS', 'FAILED', '0'], true)) {
+            return false;
+        }
+
+        return (bool) preg_match('/^[A-Z0-9]{12,22}$/', $utr);
+    }
+
+    /**
+     * Bank UTR often arrives while ekqr still reports scanning — that is a paid order.
+     */
+    private function shouldCreditAsPaid(string $remoteStatus, string $upiTxnId): bool
+    {
+        if ($this->isGatewayFailureStatus($remoteStatus)) {
+            return false;
+        }
+        if ($this->isGatewaySuccessStatus($remoteStatus)) {
+            return true;
+        }
+
+        return $this->looksLikeUtr($upiTxnId);
+    }
+
+    /**
+     * @param  mixed  $json
+     * @return array<string, mixed>
+     */
+    private function decodeGatewayJsonBody(string $raw, mixed $json): array
+    {
+        if (is_array($json) && $json !== []) {
+            return $json;
+        }
+        $decoded = json_decode($raw, true);
+
+        return is_array($decoded) ? $decoded : [];
+    }
+
     private function isGatewayFailureStatus(string $s): bool
     {
         return in_array(strtolower(trim($s)), [
@@ -976,22 +1113,33 @@ class UpiGatewayController extends Controller
             $payload['upi_txn_id'] ?? null,
             $payload['utr'] ?? null,
             $payload['bank_ref'] ?? null,
+            $payload['bank_rrn'] ?? null,
+            $payload['rrn'] ?? null,
             $payload['upiTxnId'] ?? null,
             data_get($payload, 'data.upi_txn_id'),
             data_get($payload, 'data.utr'),
+            data_get($payload, 'data.bank_rrn'),
             data_get($payload, 'result.upi_txn_id'),
         ];
 
+        $fallback = '';
         foreach ($candidates as $c) {
-            if (is_scalar($c)) {
-                $s = trim((string) $c);
-                if ($s !== '') {
-                    return $s;
-                }
+            if (! is_scalar($c)) {
+                continue;
+            }
+            $s = trim((string) $c);
+            if ($s === '') {
+                continue;
+            }
+            if ($this->looksLikeUtr($s)) {
+                return $s;
+            }
+            if ($fallback === '') {
+                $fallback = $s;
             }
         }
 
-        return '';
+        return $fallback;
     }
 
     private function stringifyMixed(mixed $v): ?string

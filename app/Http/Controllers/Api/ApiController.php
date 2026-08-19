@@ -1336,13 +1336,13 @@ class ApiController extends Controller
                         if ((int) $locked->challenger_status === 3
                             && (int) $locked->opponent_status === 3
                             && ! in_array((int) $locked->status, [3, 7], true)) {
-                            $locked->status = 3;
+                            $locked->status = 7;
                             $fullyClosed = true;
                         } else {
                             $cancelAlreadyDone = true;
                         }
                     } elseif (! $hasOpponent || ! $hasRoomcode || $otherSideCancelled) {
-                        $locked->status = 3;
+                        $locked->status = 7;
                         $locked->challenger_status = 3;
                         $locked->opponent_status = 3;
                         $fullyClosed = true;
@@ -1357,8 +1357,12 @@ class ApiController extends Controller
                         $fullyClosed = (int) $locked->challenger_status === 3
                             && (int) $locked->opponent_status === 3;
                         if ($fullyClosed) {
-                            $locked->status = 3;
+                            $locked->status = 7;
                         }
+                    }
+
+                    if ($fullyClosed) {
+                        $locked->closed_at = now();
                     }
 
                     $locked->is_lock = 0;
@@ -1460,20 +1464,23 @@ class ApiController extends Controller
                 $ludoKingGameIdForDb = $roomcode;
                 if ($lk->apiKey() !== '' && $lk->baseUrl() !== '') {
                     $check = $lk->checkRoom($roomcode);
-                    if (! $check || ! ($check->valid ?? false)) {
+                    if (! $check || ! $lk->isCheckRoomValid($check)) {
                         unlock_game_challenge($game_challenge);
                         $msg = is_object($check) && isset($check->msg) ? (string) $check->msg : 'Invalid room code';
 
                         return response()->json(['status' => false, 'message' => $msg]);
                     }
-                    $rtype = strtolower((string) ($check->type ?? ''));
+                    $rtype = strtolower((string) ($check->type ?? (is_object($check->data ?? null) ? ($check->data->type ?? '') : '')));
                     if ($rtype !== '' && $rtype !== 'classic') {
                         unlock_game_challenge($game_challenge);
 
                         return response()->json(['status' => false, 'message' => 'Only classic room type is allowed']);
                     }
 
-                    $gid = isset($check->game_id) ? trim((string) $check->game_id) : '';
+                    $gid = $lk->extractMongoGameId($check) ?? '';
+                    if ($gid === '') {
+                        $gid = isset($check->game_id) ? trim((string) $check->game_id) : '';
+                    }
                     if ($gid === '' || ! preg_match('/^[a-f\d]{24}$/i', $gid)) {
                         unlock_game_challenge($game_challenge);
 
@@ -2287,7 +2294,7 @@ class ApiController extends Controller
                   ->where(function ($q) use ($userId) {
                       $q->where('challenger_id', $userId)->orWhere('opponent_id', $userId);
                   })
-                  ->whereNotIn('status', [2, 4, 6, 7])
+                  ->whereNotIn('status', [2, 3, 4, 6, 7])
                   ->where(function ($q) {
                       $q->whereNull('challenger_status')->orWhere('challenger_status', '!=', 3);
                   })
@@ -2809,14 +2816,14 @@ class ApiController extends Controller
                 ]);
             }
 
-            if ($transaction->status == 0 && $pg === 'upigateway') {
+            if ((int) $transaction->status === 0 && $this->isUpiGatewayDeposit($transaction, $pg)) {
                 try {
                     Log::info('[UPI Gateway] mobile transaction_status → syncStatus', [
                         'client_txn_id' => $transaction->txn_id,
                         'user_id'       => $transaction->user_id,
                     ]);
                     (new \App\Http\Controllers\PaymentGateway\UpiGatewayController())
-                        ->syncStatus($transaction->txn_id, 2);
+                        ->syncStatus($transaction->txn_id, 4);
                     $transaction->refresh();
                     Log::info('[UPI Gateway] mobile transaction_status ← after sync', [
                         'client_txn_id' => $transaction->txn_id,
@@ -2897,6 +2904,24 @@ class ApiController extends Controller
                 'status'  => false,
                 'message' => 'Unable to load transaction status. Try again.',
             ], 500);
+        }
+    }
+
+    private function isUpiGatewayDeposit(Transaction $transaction, string $pg): bool
+    {
+        if (strtolower(trim($pg)) === 'upigateway') {
+            return true;
+        }
+
+        $pi = strtolower(trim((string) $transaction->payment_info));
+        if ($pi !== '' && (str_contains($pi, 'upi gateway') || str_starts_with($pi, 'upigateway'))) {
+            return true;
+        }
+
+        try {
+            return $transaction->gatewayPayment()->where('provider', 'ekqr')->exists();
+        } catch (\Throwable $e) {
+            return false;
         }
     }
 
@@ -2989,10 +3014,10 @@ class ApiController extends Controller
                 ]);
             }
 
-            if (request()->boolean('sync') && (int) $transaction->status === 0 && $pg === 'upigateway') {
+            if (request()->boolean('sync') && (int) $transaction->status === 0 && $this->isUpiGatewayDeposit($transaction, $pg)) {
                 try {
                     (new \App\Http\Controllers\PaymentGateway\UpiGatewayController())
-                        ->syncStatus($transaction->txn_id, 2);
+                        ->syncStatus($transaction->txn_id, 4);
                     $transaction->refresh();
                     $gp->refresh();
                 } catch (\Throwable $e) {
@@ -3258,7 +3283,7 @@ class ApiController extends Controller
         $referral_users = User::where('refer_by', $this->user()->id)->paginate(20);
 
         foreach ($referral_users as $referral_user):
-            $referral_user->total_generated_refer_amount  = CommissionHistory::whereUserId($referral_user->id)->whereReferBy($this->user()->id)->sum('refer_commission_amount');
+            $referral_user->total_generated_refer_amount  = round((float) CommissionHistory::whereUserId($referral_user->id)->whereReferBy($this->user()->id)->sum('refer_commission_amount'), 2);
         endforeach;
 
         $referrals_data = UserResource::collection($referral_users)->response()->getData(true);

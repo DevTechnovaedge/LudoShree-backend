@@ -73,9 +73,13 @@ class Kernel extends ConsoleKernel
 
         $schedule->command('upi:sync-pending-deposits')
             ->everyMinute()
-            ->withoutOverlapping(4);
+            ->withoutOverlapping(10);
 
         $schedule->command('game:settle-stuck-challenges')
+            ->everyMinute()
+            ->withoutOverlapping(4);
+
+        $schedule->command('game:sync-lk-results')
             ->everyMinute()
             ->withoutOverlapping(4);
 

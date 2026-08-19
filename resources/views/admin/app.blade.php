@@ -1062,12 +1062,16 @@
             'X-Requested-With': 'XMLHttpRequest',
             'Accept': 'application/json'
           },
-          data: { ludo_king_game_id : ludo_king_game_id },
+          data: {
+            ludo_king_game_id : ludo_king_game_id,
+            game_uid: $btn.attr('data-game-id') || ''
+          },
           success: (res) => {
             if (res.status) {
                 $btn.closest('td').find('.ludo-shree-result-view').html(res.view);
 
-                if(res.data && (res.data.game_status == 'Finished' || res.data.game_status == 'Destroyed')){
+                const gs = String(res.data.game_status || res.data.status || '').toLowerCase();
+                if (res.auto_settled || gs === 'finished' || gs === 'destroyed' || gs === 'completed') {
                   $btn.remove();
                 }
 

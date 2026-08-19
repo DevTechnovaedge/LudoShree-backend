@@ -32,7 +32,7 @@ class GameChallengeAutoSettleService
                     return;
                 }
 
-                if (in_array((int) $row->status, [4, 6, 7], true)) {
+                if ((int) $row->status === 4) {
                     if ((int) $row->is_lock === 1) {
                         $row->is_lock = 0;
                         $row->save();
@@ -45,9 +45,7 @@ class GameChallengeAutoSettleService
                 $opponentStatus = (int) $row->opponent_status;
 
                 if ($challengerStatus === 3 && $opponentStatus === 3) {
-                    if (! in_array((int) $row->status, [3, 7], true)) {
-                        $row->status = 3;
-                    }
+                    $row->status = 7;
                     $row->closed_at = now();
                     $row->is_lock = 0;
                     $row->save();
@@ -57,6 +55,15 @@ class GameChallengeAutoSettleService
                         'game_challenge_id' => $row->id,
                         'uid' => $row->uid,
                     ]);
+
+                    return;
+                }
+
+                if (in_array((int) $row->status, [6, 7], true)) {
+                    if ((int) $row->is_lock === 1) {
+                        $row->is_lock = 0;
+                        $row->save();
+                    }
 
                     return;
                 }
