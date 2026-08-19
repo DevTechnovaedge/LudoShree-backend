@@ -424,37 +424,62 @@ class UserController extends Controller
     {
         $this->authorize('permissions', [$this->permission_key, 'view']);
 
-        $q = trim((string) $request->get('q', ''));
+        $q = trim((string) ($request->get('q') ?: $request->get('term') ?: ''));
         $excludeId = (int) $request->get('exclude_id', 0);
         $page = max(1, (int) $request->get('page', 1));
-        $perPage = 30;
+        $perPage = 50;
+
+        $needle = mb_strtolower(preg_replace('/\s+/u', ' ', $q) ?? '', 'UTF-8');
+        $compact = preg_replace('/\s+/u', '', $needle) ?? '';
+        $like = '%'.str_replace(['%', '_'], ['\\%', '\\_'], $needle).'%';
+        $likeCompact = '%'.str_replace(['%', '_'], ['\\%', '\\_'], $compact).'%';
+        $starts = str_replace(['%', '_'], ['\\%', '\\_'], $needle).'%';
 
         $users = User::query()
-            ->withoutGlobalScope('verified_mobile')
+            ->withoutGlobalScopes()
             ->select('id', 'uid', 'name', 'mobile')
             ->when($excludeId > 0, fn ($query) => $query->where('id', '!=', $excludeId))
-            ->where(function ($query) {
-                $query->where('is_king_player', 0)->orWhereNull('is_king_player');
-            })
-            ->when($q !== '', function ($query) use ($q) {
-                $like = '%'.str_replace(['%', '_'], ['\\%', '\\_'], $q).'%';
-                $query->where(function ($inner) use ($q, $like) {
-                    $inner->where('name', 'like', $like)
-                        ->orWhere('uid', 'like', $like)
-                        ->orWhere('mobile', 'like', $like)
-                        ->orWhere('refer_code', 'like', $like);
+            ->when($needle !== '', function ($query) use ($q, $like, $likeCompact, $needle) {
+                $query->where(function ($inner) use ($q, $like, $likeCompact, $needle) {
+                    $inner->whereRaw('LOWER(TRIM(COALESCE(name, ""))) LIKE ?', [$like])
+                        ->orWhereRaw('LOWER(TRIM(COALESCE(uid, ""))) LIKE ?', [$like])
+                        ->orWhereRaw('LOWER(TRIM(COALESCE(mobile, ""))) LIKE ?', [$like])
+                        ->orWhereRaw('LOWER(TRIM(COALESCE(email, ""))) LIKE ?', [$like])
+                        ->orWhereRaw('LOWER(TRIM(COALESCE(refer_code, ""))) LIKE ?', [$like])
+                        ->orWhereRaw(
+                            'LOWER(REPLACE(REPLACE(REPLACE(COALESCE(name, ""), " ", ""), ".", ""), "-", "")) LIKE ?',
+                            [$likeCompact]
+                        );
+
                     if (ctype_digit($q)) {
-                        $inner->orWhere('id', (int) $q);
+                        $inner->orWhere('id', (int) $q)
+                            ->orWhere('mobile', 'like', '%'.$q.'%');
+                    }
+
+                    if (strlen($needle) >= 3) {
+                        $inner->orWhereRaw('SOUNDEX(name) = SOUNDEX(?)', [$q]);
                     }
                 });
+            })
+            ->when($needle !== '', function ($query) use ($needle, $starts) {
+                $query->orderByRaw(
+                    'CASE
+                        WHEN LOWER(TRIM(COALESCE(name, ""))) = ? THEN 0
+                        WHEN LOWER(TRIM(COALESCE(uid, ""))) = ? THEN 0
+                        WHEN LOWER(TRIM(COALESCE(name, ""))) LIKE ? THEN 1
+                        WHEN LOWER(TRIM(COALESCE(uid, ""))) LIKE ? THEN 1
+                        ELSE 2
+                    END',
+                    [$needle, $needle, $starts, $starts]
+                );
             })
             ->orderBy('name')
             ->paginate($perPage, ['*'], 'page', $page);
 
         return response()->json([
             'results' => $users->getCollection()->map(fn (User $user) => [
-                'id' => $user->id,
-                'text' => $user->name.' (UID: '.$user->uid.')',
+                'id' => (string) $user->id,
+                'text' => trim((string) $user->name).' (UID: '.$user->uid.')',
             ])->values(),
             'pagination' => [
                 'more' => $users->hasMorePages(),

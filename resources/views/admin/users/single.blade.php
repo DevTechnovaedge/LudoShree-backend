@@ -814,18 +814,35 @@
 
     var $sponsor = $('#sponsor');
     if ($sponsor.length) {
+        if ($sponsor.hasClass('select2-hidden-accessible')) {
+            $sponsor.select2('destroy');
+        }
         $sponsor.select2({
             placeholder: $sponsor.data('placeholder') || 'Search name, UID or mobile',
             allowClear: true,
             width: '100%',
             minimumInputLength: 0,
+            matcher: function (params, data) {
+                if ($.trim(params.term) === '') {
+                    return data;
+                }
+                if (typeof data.text === 'undefined') {
+                    return null;
+                }
+                if (data.text.toLowerCase().indexOf(params.term.toLowerCase()) > -1) {
+                    return data;
+                }
+                return null;
+            },
             ajax: {
                 url: $sponsor.data('search-url'),
                 dataType: 'json',
                 delay: 250,
+                cache: false,
                 data: function (params) {
                     return {
                         q: params.term || '',
+                        term: params.term || '',
                         page: params.page || 1,
                         exclude_id: $sponsor.data('exclude-id') || 0
                     };
@@ -834,7 +851,7 @@
                     params.page = params.page || 1;
                     var results = data.results || [];
                     if (params.page === 1) {
-                        results = [{ id: 0, text: 'None' }].concat(results);
+                        results = [{ id: '0', text: 'None' }].concat(results);
                     }
                     return {
                         results: results,
@@ -842,8 +859,7 @@
                             more: !!(data.pagination && data.pagination.more)
                         }
                     };
-                },
-                cache: true
+                }
             }
         });
     }
