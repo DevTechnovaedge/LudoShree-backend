@@ -95,14 +95,6 @@ class ApiController extends Controller
           return GameChallenge::runningForUser($user->id)->exists();
       }
 
-      /** Waiting-table cancel has no accept race — skip DB lock round-trip. */
-      private function shouldSkipChallengeLock(string $type, GameChallenge $challenge): bool
-      {
-          return $type === 'cancel'
-              && (int) $challenge->status === 0
-              && empty($challenge->opponent_id);
-      }
-
       /**
        * App users that should receive cashier withdrawal FCM (explicit flag + admin "Cashier" role mobile match).
        *
@@ -813,10 +805,8 @@ class ApiController extends Controller
                 return response()->json(['status' =>  false, 'message' => 'Game Status updating please wait.....']);
             endif;
 
-            if (! $this->shouldSkipChallengeLock((string) request()->type, $game_challenge)) {
-                lock_game_challenge($game_challenge);
-                $challengeLocked = true;
-            }
+            lock_game_challenge($game_challenge);
+            $challengeLocked = true;
 
         endif;
 
@@ -1009,6 +999,7 @@ class ApiController extends Controller
                 $opponent_game_fee = $game_challenge->entryStakeAmount();
                 $waitingDismiss = app(GameChallengeWaitingDismissService::class);
                 $insufficientBalance = false;
+                $acceptRejected = null;
 
                 if ($opponent_game_fee <= 0) {
                     unlock_game_challenge($game_challenge);
@@ -1016,17 +1007,42 @@ class ApiController extends Controller
                     return response()->json(['status' => false, 'message' => 'Invalid table amount. Please try another one.']);
                 }
 
-                # Dismiss waiting games (refunds), then debit accept stake on a fresh locked user row.
-                # Without reload, $user still holds pre-refund balances and save() overwrites the refund.
+                # Lock the challenge row, confirm it is still waiting, check balance,
+                # then dismiss other tables + debit + attach opponent in ONE transaction.
+                # Previously dismiss ran before the balance check (auto-cancelling other
+                # tables on a failed accept) and opponent_id was saved after debit committed
+                # (cancel could refund only the creator and leave the joiner unpaid).
+                try {
                 DB::transaction(function () use (
                     $waitingDismiss,
-                    $game_challenge,
+                    &$game_challenge,
                     $user,
                     $opponent_game_fee,
-                    &$insufficientBalance
+                    &$insufficientBalance,
+                    &$acceptRejected
                 ) {
-                    $waitingDismiss->dismissWaitingGamesForChallenger($game_challenge->challenger_id, $game_challenge->id);
-                    $waitingDismiss->dismissWaitingGamesForChallenger($user->id);
+                    $lockedChallenge = GameChallenge::query()->lockForUpdate()->find($game_challenge->id);
+                    if (! $lockedChallenge) {
+                        $acceptRejected = 'Game Challenge not found';
+
+                        return;
+                    }
+
+                    if (
+                        (int) $lockedChallenge->status !== 0
+                        || (int) $lockedChallenge->opponent_id > 0
+                    ) {
+                        if (
+                            in_array((int) $lockedChallenge->status, [2, 3, 6, 7], true)
+                            || (int) $lockedChallenge->challenger_status === 3
+                        ) {
+                            $acceptRejected = 'This game was cancelled. Please try another one.';
+                        } else {
+                            $acceptRejected = 'Game Challenge already accepted.';
+                        }
+
+                        return;
+                    }
 
                     $lockedUser = User::query()->lockForUpdate()->find($user->id);
                     if (! $lockedUser) {
@@ -1042,6 +1058,9 @@ class ApiController extends Controller
                         return;
                     }
 
+                    $waitingDismiss->dismissWaitingGamesForChallenger($lockedChallenge->challenger_id, $lockedChallenge->id);
+                    $waitingDismiss->dismissWaitingGamesForChallenger($user->id);
+
                     $game_wallet_amount = (float) $lockedUser->game_wallet_amount;
                     $win_wallet_amount = (float) $lockedUser->win_wallet_amount;
                     $remaining_challenge_amount = $opponent_game_fee;
@@ -1050,10 +1069,10 @@ class ApiController extends Controller
                         $new_game_wallet_balance = $game_wallet_amount - $opponent_game_fee;
                         Wallet::create([
                             'user_id' => $lockedUser->id,
-                            'game_challenge_id' => $game_challenge->id,
+                            'game_challenge_id' => $lockedChallenge->id,
                             'type' => 'debit',
                             'wallet_type' => 'game',
-                            'remark' => "Challenge accepted. Ref: $game_challenge->uid",
+                            'remark' => "Challenge accepted. Ref: $lockedChallenge->uid",
                             'amount' => $opponent_game_fee,
                             'total_balance' => $new_game_wallet_balance,
                             'status' => 0,
@@ -1065,10 +1084,10 @@ class ApiController extends Controller
                         if ($game_wallet_amount > 0) {
                             Wallet::create([
                                 'user_id' => $lockedUser->id,
-                                'game_challenge_id' => $game_challenge->id,
+                                'game_challenge_id' => $lockedChallenge->id,
                                 'type' => 'debit',
                                 'wallet_type' => 'game',
-                                'remark' => "Challenge accepted. Ref: $game_challenge->uid",
+                                'remark' => "Challenge accepted. Ref: $lockedChallenge->uid",
                                 'amount' => $game_wallet_amount,
                                 'total_balance' => 0,
                                 'status' => 0,
@@ -1080,28 +1099,51 @@ class ApiController extends Controller
                             $new_win_wallet_balance = $win_wallet_amount - $remaining_challenge_amount;
                             Wallet::create([
                                 'user_id' => $lockedUser->id,
-                                'game_challenge_id' => $game_challenge->id,
+                                'game_challenge_id' => $lockedChallenge->id,
                                 'type' => 'debit',
                                 'wallet_type' => 'win',
-                                'remark' => "Challenge accepted. Ref: $game_challenge->uid",
+                                'remark' => "Challenge accepted. Ref: $lockedChallenge->uid",
                                 'amount' => $remaining_challenge_amount,
                                 'total_balance' => $new_win_wallet_balance,
                                 'status' => 0,
                             ]);
                             $lockedUser->win_wallet_amount = $new_win_wallet_balance;
+                        } else {
+                            throw new \RuntimeException('INSUFFICIENT_BALANCE_ON_ACCEPT');
                         }
                     }
 
                     $lockedUser->save();
 
+                    $lockedChallenge->amount = $opponent_game_fee * 2;
+                    $lockedChallenge->opponent_id = $user->id;
+                    $lockedChallenge->opponent_amount = $opponent_game_fee;
+                    $lockedChallenge->status = 1;
+                    $lockedChallenge->is_lock = 0;
+                    $lockedChallenge->save();
+
                     $user->game_wallet_amount = $lockedUser->game_wallet_amount;
                     $user->win_wallet_amount = $lockedUser->win_wallet_amount;
+                    $game_challenge = $lockedChallenge;
                 });
+                } catch (\RuntimeException $acceptException) {
+                    if ($acceptException->getMessage() === 'INSUFFICIENT_BALANCE_ON_ACCEPT') {
+                        $insufficientBalance = true;
+                    } else {
+                        throw $acceptException;
+                    }
+                }
 
                 if ($insufficientBalance) {
                     unlock_game_challenge($game_challenge);
 
                     return response()->json(['status' => false, 'message' => 'Insufficient Balance']);
+                }
+
+                if ($acceptRejected) {
+                    unlock_game_challenge($game_challenge);
+
+                    return response()->json(['status' => false, 'message' => $acceptRejected]);
                 }
 
                 # ===========================================================================
@@ -1198,45 +1240,20 @@ class ApiController extends Controller
                 $isChallenger = $user->id == $game_challenge->challenger_id;
                 $isOpponent = $user->id == $game_challenge->opponent_id;
                 $status = 3;  # Cancelled status
+                $recipient = null;
+                $proof_image = null;
+                $cancelAlreadyDone = false;
 
                 if ($isChallenger) {
-
-                    if ($game_challenge->challenger_status == 3) {
-                         unlock_game_challenge($game_challenge);
-                        return response()->json(['status' => false, 'message' => 'Already game cancelled']);
-                    }
-
-                    $game_status = $game_challenge->opponent_status == 1 ? 5 : 3;  // Update status for dispute
-
-                    # ===========================================================================
-                    # Upload Proof Image
-                    # ===========================================================================
                     $proof_image = uploadFile('proof_image', "proof/cancel/$game_challenge->uid/");
-
                     $data = [
-                        'status' => $status,
-                        'challenger_status' => $status,
                         'challenger_remark' => request()->remark,
                         'challenger_screenshot' => $proof_image,
                     ];
                     $recipient = $game_challenge->opponent;
                 } elseif ($isOpponent) {
-
-                    if ($game_challenge->opponent_status == 3) {
-                         unlock_game_challenge($game_challenge);
-                        return response()->json(['status' => false, 'message' => 'Already game cancelled']);
-                    }
-
-                    $game_status = $game_challenge->challenger_status == 1 ? 5 : 3;  // Update status for dispute
-
-                    # ===========================================================================
-                    # Upload Proof Image
-                    # ===========================================================================
                     $proof_image = uploadFile('proof_image', "proof/cancel/$game_challenge->uid/");
-                    
                     $data = [
-                        'status'            => $game_status,
-                        'opponent_status' => $status,
                         'opponent_remark' => request()->remark,
                         'opponent_screenshot' => $proof_image,
                     ];
@@ -1257,73 +1274,100 @@ class ApiController extends Controller
                     );
                 }
 
-                  # Waiting game (no opponent): refund creator stake immediately
-                  if (empty($game_challenge->opponent_id)) {
-                    app(GameChallengeStakeRefundService::class)->refundUserStake(
-                        (int) $game_challenge->id,
-                        (int) $game_challenge->challenger_id,
-                        "Challenge Refund Ref: {$game_challenge->uid}"
-                    );
-                  }
-                # End waiting-game refund
-                
+                $refundService = app(GameChallengeStakeRefundService::class);
 
-                # ===========================================================================
-                # Finalize Status and Wallet Updates
-                # ===========================================================================
-                if (($game_challenge->opponent_status == $status && $isChallenger) ||
-                    ($game_challenge->challenger_status == $status && $isOpponent) || ( !$game_challenge->roomcode && $game_challenge->opponent_id)
+                DB::transaction(function () use (
+                    &$game_challenge,
+                    &$data,
+                    &$cancelAlreadyDone,
+                    $isChallenger,
+                    $isOpponent,
+                    $refundService
                 ) {
-                    $refundService = app(GameChallengeStakeRefundService::class);
-                    $challenger_user = User::find($game_challenge->challenger_id);
-                    $opponent_user  = User::find($game_challenge->opponent_id);
-
-                    if ($challenger_user) {
-                        $refundService->refundUserStake(
-                            (int) $id,
-                            (int) $challenger_user->id,
-                            "Challenge Refund Ref: {$game_challenge->uid}"
-                        );
+                    $locked = GameChallenge::query()->lockForUpdate()->find($game_challenge->id);
+                    if (! $locked) {
+                        return;
                     }
 
-                    if ($opponent_user && $opponent_user->id) {
-                        $refundService->refundUserStake(
-                            (int) $id,
-                            (int) $opponent_user->id,
-                            "Challenge Refund Ref: {$game_challenge->uid}"
-                        );
+                    $alreadyThisSide = ($isChallenger && (int) $locked->challenger_status === 3)
+                        || ($isOpponent && (int) $locked->opponent_status === 3);
+
+                    $hasOpponent = (int) $locked->opponent_id > 0;
+                    $hasRoomcode = ! empty($locked->roomcode);
+                    $otherSideCancelled = $isChallenger
+                        ? (int) $locked->opponent_status === 3
+                        : (int) $locked->challenger_status === 3;
+
+                    $fullyClosed = ! $hasOpponent
+                        || ! $hasRoomcode
+                        || $otherSideCancelled
+                        || in_array((int) $locked->status, [3, 7], true)
+                        || ((int) $locked->challenger_status === 3 && (int) $locked->opponent_status === 3);
+
+                    if ($isChallenger && ! empty($data['challenger_remark'])) {
+                        $locked->challenger_remark = $data['challenger_remark'];
                     }
+                    if ($isChallenger && ! empty($data['challenger_screenshot'])) {
+                        $locked->challenger_screenshot = $data['challenger_screenshot'];
+                    }
+                    if ($isOpponent && ! empty($data['opponent_remark'])) {
+                        $locked->opponent_remark = $data['opponent_remark'];
+                    }
+                    if ($isOpponent && ! empty($data['opponent_screenshot'])) {
+                        $locked->opponent_screenshot = $data['opponent_screenshot'];
+                    }
+
+                    if ($alreadyThisSide) {
+                        $cancelAlreadyDone = true;
+                    } elseif (! $hasOpponent || ! $hasRoomcode || $otherSideCancelled) {
+                        $locked->status = 3;
+                        $locked->challenger_status = 3;
+                        $locked->opponent_status = 3;
+                        $fullyClosed = true;
+                    } else {
+                        $locked->status = 2;
+                        if ($isChallenger) {
+                            $locked->challenger_status = 3;
+                        }
+                        if ($isOpponent) {
+                            $locked->opponent_status = 3;
+                        }
+                        $fullyClosed = (int) $locked->challenger_status === 3
+                            && (int) $locked->opponent_status === 3;
+                    }
+
+                    $locked->is_lock = 0;
+                    $locked->save();
+
+                    if ($fullyClosed) {
+                        $refundService->refundAllStakes($locked);
+                    } else {
+                        Log::info('[challenge.cancel] waiting for other player before refund', [
+                            'game_challenge_id' => $locked->id,
+                            'uid' => $locked->uid,
+                            'challenger_status' => $locked->challenger_status,
+                            'opponent_status' => $locked->opponent_status,
+                            'roomcode' => $locked->roomcode,
+                        ]);
+                    }
+
+                    $data = array_merge($data, [
+                        'status' => $locked->status,
+                        'challenger_status' => $locked->challenger_status,
+                        'opponent_status' => $locked->opponent_status,
+                        'challenger_remark' => $locked->challenger_remark,
+                        'challenger_screenshot' => $locked->challenger_screenshot,
+                        'opponent_remark' => $locked->opponent_remark,
+                        'opponent_screenshot' => $locked->opponent_screenshot,
+                    ]);
+                    $game_challenge = $locked;
+                });
+
+                if ($cancelAlreadyDone) {
+                    unlock_game_challenge($game_challenge);
+
+                    return response()->json(['status' => false, 'message' => 'Already game cancelled']);
                 }
-
-                
-                 # Roomcode not updated yet
-                 if(!$game_challenge->roomcode ||
-                    ($game_challenge->roomcode && $game_challenge->opponent_status==3 && $isChallenger) ||
-                    ($game_challenge->roomcode && $game_challenge->challenger_status==3 &&  $isOpponent)):
-
-                    $data = [
-                        'status' => 3,
-                        'challenger_status' => 3,
-                        'opponent_status' => 3
-                    ];
-
-                else:
-                    // $data = [ 'status' => 2,];
-                    $data['status'] = 2;
-
-                    if($isChallenger):
-                        $data['challenger_status'] = 3;
-                    endif;
-
-                    if($isOpponent):
-                        $data['opponent_status'] = 3;
-                    endif;
-
-                endif;
-                # End Roomcode not updated yet
-
-                # Safety: idempotent refund for waiting games (no opponent) if not credited yet
-                # (handled above at lines 1241–1248 — do not duplicate here)
 
                 $message    =   'Game Challenge cancel successfully.';
 
@@ -2065,7 +2109,88 @@ class ApiController extends Controller
         endif;
 
         $data['is_lock']   =   0;
-        $result        =   GameChallenge::updateOrCreate(['id' =>  $id], $data);
+
+        $debitCreateStake = function () use ($user, &$game_challenge, $amount): void {
+            $lockedUser = User::query()->lockForUpdate()->find($user->id);
+            if (! $lockedUser) {
+                throw new \RuntimeException('INSUFFICIENT_BALANCE_AFTER_CREATE');
+            }
+
+            $game_wallet_amount = (float) $lockedUser->game_wallet_amount;
+            $win_wallet_amount = (float) $lockedUser->win_wallet_amount;
+            $available = $game_wallet_amount + $win_wallet_amount;
+            if ((float) $amount > $available + 0.001) {
+                throw new \RuntimeException('INSUFFICIENT_BALANCE_AFTER_CREATE');
+            }
+
+            $runningTotal = $available;
+
+            $recordDebit = function (string $walletType, float $debitAmount, float $newBalance) use (
+                &$runningTotal,
+                $lockedUser,
+                $game_challenge
+            ): void {
+                Wallet::withoutEvents(function () use ($walletType, $debitAmount, $newBalance, $runningTotal, $lockedUser, $game_challenge) {
+                    Wallet::create([
+                        'user_id' => $lockedUser->id,
+                        'game_challenge_id' => $game_challenge->id,
+                        'type' => 'debit',
+                        'wallet_type' => $walletType,
+                        'remark' => "Challenge created. Ref: $game_challenge->uid",
+                        'amount' => $debitAmount,
+                        'total_balance' => $newBalance,
+                        'status' => 0,
+                        'win_and_game_total_amount' => round($runningTotal - $debitAmount, 2),
+                    ]);
+                });
+                $runningTotal -= $debitAmount;
+            };
+
+            if ($game_wallet_amount >= $amount) {
+                $new_game_wallet_balance = $game_wallet_amount - $amount;
+                $recordDebit('game', (float) $amount, $new_game_wallet_balance);
+                $lockedUser->game_wallet_amount = $new_game_wallet_balance;
+            } else {
+                $remaining_challenge_amount = $amount - $game_wallet_amount;
+                $new_game_wallet_balance = 0;
+
+                if ($game_wallet_amount > 0) {
+                    $recordDebit('game', $game_wallet_amount, $new_game_wallet_balance);
+                    $lockedUser->game_wallet_amount = $new_game_wallet_balance;
+                }
+
+                if ($win_wallet_amount >= $remaining_challenge_amount && $remaining_challenge_amount > 0) {
+                    $new_win_wallet_balance = $win_wallet_amount - $remaining_challenge_amount;
+                    $recordDebit('win', (float) $remaining_challenge_amount, $new_win_wallet_balance);
+                    $lockedUser->win_wallet_amount = $new_win_wallet_balance;
+                } else {
+                    throw new \RuntimeException('INSUFFICIENT_BALANCE_AFTER_CREATE');
+                }
+            }
+
+            $lockedUser->saveQuietly();
+            $user->game_wallet_amount = $lockedUser->game_wallet_amount;
+            $user->win_wallet_amount = $lockedUser->win_wallet_amount;
+        };
+
+        try {
+            if (request()->type === 'create') {
+                $result = DB::transaction(function () use ($id, $data, &$game_challenge, $debitCreateStake) {
+                    $created = GameChallenge::updateOrCreate(['id' => $id], $data);
+                    $game_challenge = GameChallenge::with(['challenger', 'opponent', 'game_type'])->find($created->id);
+                    $debitCreateStake();
+
+                    return $created;
+                });
+            } else {
+                $result = GameChallenge::updateOrCreate(['id' => $id], $data);
+            }
+        } catch (\RuntimeException $createException) {
+            if ($createException->getMessage() === 'INSUFFICIENT_BALANCE_AFTER_CREATE') {
+                return response()->json(['status' => false, 'message' => 'Insufficient Balance']);
+            }
+            throw $createException;
+        }
         # ===========================================================================
         #   End Wallet
         # ===========================================================================
@@ -2073,68 +2198,7 @@ class ApiController extends Controller
         if ($result) :
             $game_challenge = GameChallenge::with(['challenger', 'opponent', 'game_type'])->find($result->id);
 
-            if ($result->wasRecentlyCreated) :
-
-                ###################### Wallet Condition ####################
-                DB::transaction(function () use ($user, $game_challenge, $amount) {
-                    $lockedUser = User::query()->lockForUpdate()->find($user->id);
-                    if (! $lockedUser) {
-                        return;
-                    }
-
-                    $game_wallet_amount = (float) $lockedUser->game_wallet_amount;
-                    $win_wallet_amount = (float) $lockedUser->win_wallet_amount;
-                    $remaining_challenge_amount = 0;
-                    $runningTotal = $game_wallet_amount + $win_wallet_amount;
-
-                    $recordDebit = function (string $walletType, float $debitAmount, float $newBalance) use (
-                        &$runningTotal,
-                        $lockedUser,
-                        $game_challenge
-                    ): void {
-                        Wallet::withoutEvents(function () use ($walletType, $debitAmount, $newBalance, $runningTotal, $lockedUser, $game_challenge) {
-                            Wallet::create([
-                                'user_id' => $lockedUser->id,
-                                'game_challenge_id' => $game_challenge->id,
-                                'type' => 'debit',
-                                'wallet_type' => $walletType,
-                                'remark' => "Challenge created. Ref: $game_challenge->uid",
-                                'amount' => $debitAmount,
-                                'total_balance' => $newBalance,
-                                'status' => 0,
-                                'win_and_game_total_amount' => round($runningTotal - $debitAmount, 2),
-                            ]);
-                        });
-                        $runningTotal -= $debitAmount;
-                    };
-
-                    if ($game_wallet_amount >= $amount) {
-                        $new_game_wallet_balance = $game_wallet_amount - $amount;
-                        $recordDebit('game', (float) $amount, $new_game_wallet_balance);
-                        $lockedUser->game_wallet_amount = $new_game_wallet_balance;
-                    } else {
-                        $remaining_challenge_amount = $amount - $game_wallet_amount;
-                        $new_game_wallet_balance = 0;
-
-                        if ($game_wallet_amount > 0) {
-                            $recordDebit('game', $game_wallet_amount, $new_game_wallet_balance);
-                            $lockedUser->game_wallet_amount = $new_game_wallet_balance;
-                        }
-
-                        if ($win_wallet_amount >= $remaining_challenge_amount && $remaining_challenge_amount > 0) {
-                            $new_win_wallet_balance = $win_wallet_amount - $remaining_challenge_amount;
-                            $recordDebit('win', (float) $remaining_challenge_amount, $new_win_wallet_balance);
-                            $lockedUser->win_wallet_amount = $new_win_wallet_balance;
-                        }
-                    }
-
-                    $lockedUser->saveQuietly();
-                    $user->game_wallet_amount = $lockedUser->game_wallet_amount;
-                    $user->win_wallet_amount = $lockedUser->win_wallet_amount;
-                });
-
-            ###################### Wallet Condition ####################
-            else :
+            if (! $result->wasRecentlyCreated) :
                 #
                 if ($game_challenge->challenger_status != 0 && $game_challenge->opponent_status != 0) :
                     $game_challenge->closed_at          =   date('Y-m-d H:i:s');
@@ -2143,6 +2207,17 @@ class ApiController extends Controller
                 endif;
             #
             endif;
+
+            if (request()->type === 'cancel') {
+                $freshCancel = $game_challenge;
+                $fullyClosed = (int) $freshCancel->opponent_id <= 0
+                    || empty($freshCancel->roomcode)
+                    || in_array((int) $freshCancel->status, [3, 7], true)
+                    || ((int) $freshCancel->challenger_status === 3 && (int) $freshCancel->opponent_status === 3);
+                if ($fullyClosed) {
+                    app(GameChallengeStakeRefundService::class)->refundAllStakes($freshCancel);
+                }
+            }
 
             # ===========================================================================
             #   Response
@@ -2195,7 +2270,7 @@ class ApiController extends Controller
             unlock_game_challenge($game_challenge);
         }
         return response()->json($arr);
-        } catch (Exception $e) {
+        } catch (\Throwable $e) {
             Log::error('[challenge] unhandled exception', [
                 'type' => request()->type,
                 'game_challenge_id' => $game_challenge->id ?? $id ?? null,

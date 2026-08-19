@@ -34,11 +34,7 @@ class GameChallengeWaitingDismissService
             $waiting = $query->lockForUpdate()->get();
 
             foreach ($waiting as $gameChallenge) {
-                $this->refunds->refundUserStake(
-                    (int) $gameChallenge->id,
-                    $challengerId,
-                    'Challenge auto-closed Ref: '.$gameChallenge->uid
-                );
+                $this->refunds->refundAllStakes($gameChallenge);
 
                 $gameChallenge->status = 7;
                 $gameChallenge->challenger_status = 3;

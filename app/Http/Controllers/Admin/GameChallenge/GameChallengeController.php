@@ -384,80 +384,10 @@ class GameChallengeController extends Controller
 
             case 'cancel';
 
-
-                // Update Game Challenge Status
                 $game_challenge->opponent_status = 3;
                 $game_challenge->challenger_status = 3;
                 $game_challenge->status = 7;
-                $id = $game_challenge->id;
-                $amount = $game_challenge->challenger_amount;
-
-                $challenger_user = User::find($game_challenge->challenger_id);
-                    $opponent_user  = User::find($game_challenge->opponent_id);
-
-                    $challenger_wallet_history = Wallet::whereUserId($challenger_user->id)
-                        ->whereGameChallengeId($id)
-                        ->whereType('debit')
-                        ->get();
-
-                    $opponent_wallet_history = Wallet::whereUserId($opponent_user->id ?? 0)
-                        ->whereGameChallengeId($id)
-                        ->whereType('debit')
-                        ->get();
-
-                    // Combine the wallet histories
-                    $wallet_histories = $challenger_wallet_history->concat($opponent_wallet_history);
-
-                    foreach ($wallet_histories as $wallet_history) {
-                        $wallet_type = $wallet_history->wallet_type;
-                        $amount = $wallet_history->amount;
-
-                        // Determine which user is being updated and update the balance accordingly
-                        if ($challenger_user->id == $wallet_history->user_id) {
-                            $total_balance = ($wallet_type == 'game')
-                                ? $challenger_user->game_wallet_amount + $amount
-                                : $challenger_user->win_wallet_amount + $amount;
-
-                            if ($wallet_type == 'game') {
-                                $challenger_user->game_wallet_amount = $total_balance;
-                            } elseif ($wallet_type == 'win') {
-                                $challenger_user->win_wallet_amount = $total_balance;
-                            }
-                        }
-
-                        if (( $opponent_user->id ?? 0 ) == $wallet_history->user_id) {
-                            $total_balance = ($wallet_type == 'game')
-                                ? $opponent_user->game_wallet_amount + $amount
-                                : $opponent_user->win_wallet_amount + $amount;
-
-                            if ($wallet_type == 'game') {
-                                $opponent_user->game_wallet_amount = $total_balance;
-                            } elseif ($wallet_type == 'win') {
-                                $opponent_user->win_wallet_amount = $total_balance;
-                            }
-                        }
-
-                        if($wallet_history->user_id):
-                            // Create a new wallet entry
-                            Wallet::create([
-                                'user_id' => $wallet_history->user_id,
-                                'game_challenge_id' => $id,
-                                'type' => 'credit',
-                                'wallet_type' => $wallet_type,
-                                'remark' => "Challenge Refund Ref: $game_challenge->uid",
-                                'amount' => $wallet_history->amount,
-                                'total_balance' => $total_balance,
-                                'status' => 1,
-                            ]);
-                        endif;
-                    }
-
-                    // Save changes to both users after processing all wallet histories
-                    $challenger_user->save();
-
-                    if(( $opponent_user->id ?? 0 )):
-                        $opponent_user->save();
-                    endif;
+                app(\App\Services\GameChallengeStakeRefundService::class)->refundAllStakes($game_challenge);
                 break;
 
             case 'suspended';

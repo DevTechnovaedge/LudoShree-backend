@@ -75,6 +75,48 @@ class GameChallengeStakeRefundService
         return $totalRefunded;
     }
 
+    /**
+     * Refund every real player who still has an open stake on this challenge.
+     * Uses debit rows (not just challenger/opponent ids) so an acceptor who
+     * paid before opponent_id was saved is still credited.
+     */
+    public function refundAllStakes(GameChallenge $gameChallenge): float
+    {
+        $userIds = Wallet::query()
+            ->where('game_challenge_id', $gameChallenge->id)
+            ->where('type', 'debit')
+            ->distinct()
+            ->pluck('user_id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        $userIds[] = (int) $gameChallenge->challenger_id;
+        if ((int) $gameChallenge->opponent_id > 0) {
+            $userIds[] = (int) $gameChallenge->opponent_id;
+        }
+
+        $userIds = array_values(array_unique(array_filter($userIds)));
+        $remark = "Challenge Refund Ref: {$gameChallenge->uid}";
+        $total = 0.0;
+        $perUser = [];
+
+        foreach ($userIds as $userId) {
+            $refunded = $this->refundUserStake((int) $gameChallenge->id, $userId, $remark);
+            $perUser[$userId] = $refunded;
+            $total += $refunded;
+        }
+
+        Log::info('[GameChallengeRefund] refundAllStakes', [
+            'game_challenge_id' => $gameChallenge->id,
+            'uid' => $gameChallenge->uid,
+            'user_ids' => $userIds,
+            'per_user' => $perUser,
+            'total' => $total,
+        ]);
+
+        return $total;
+    }
+
     public function hasRefundableStake(int $gameChallengeId, int $userId): bool
     {
         $debited = (float) $this->debitedByWallet($gameChallengeId, $userId)->sum();

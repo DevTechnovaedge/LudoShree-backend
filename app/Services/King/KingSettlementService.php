@@ -67,23 +67,85 @@ class KingSettlementService
 
         $fee = $challenge->entryStakeAmount();
         $debited = false;
+        $insufficient = false;
+        $alreadyDone = false;
+        $conflict = false;
 
-        DB::transaction(function () use ($challenge, $joiner, $fee, &$debited) {
-            // Close other waiting tables (their King copies are deleted via
-            // the dismiss service hook).
-            $this->waitingDismiss->dismissWaitingGamesForChallenger($joiner->id);
+        try {
+        DB::transaction(function () use ($challenge, $joiner, $fee, &$debited, &$insufficient, &$alreadyDone, &$conflict) {
+            $lockedChallenge = GameChallenge::query()->lockForUpdate()->find($challenge->id);
+            if (! $lockedChallenge) {
+                $conflict = true;
 
-            if (! is_king_ghost_user($challenge->challenger_id)) {
-                $this->waitingDismiss->dismissWaitingGamesForChallenger((int) $challenge->challenger_id, (int) $challenge->id);
+                return;
             }
 
-            $debited = $this->debitStake($joiner, $challenge, $fee, "Challenge accepted. Ref: $challenge->uid");
-        });
+            if ((int) $lockedChallenge->opponent_id > 0 || (int) $lockedChallenge->status !== 0) {
+                if ((int) $lockedChallenge->opponent_id === (int) $joiner->id && (int) $lockedChallenge->status === 1) {
+                    $alreadyDone = true;
+                    $debited = true;
+                } else {
+                    $conflict = true;
+                }
 
-        if (! $debited) {
+                return;
+            }
+
+            $lockedJoiner = User::query()->withoutGlobalScopes()->lockForUpdate()->find($joiner->id);
+            $available = $lockedJoiner
+                ? ((float) $lockedJoiner->game_wallet_amount + (float) $lockedJoiner->win_wallet_amount)
+                : 0.0;
+
+            if (! $lockedJoiner || $available < $fee) {
+                $insufficient = true;
+
+                return;
+            }
+
+            // Close other waiting tables only after this join is known to be payable.
+            $this->waitingDismiss->dismissWaitingGamesForChallenger($joiner->id);
+
+            if (! is_king_ghost_user($lockedChallenge->challenger_id)) {
+                $this->waitingDismiss->dismissWaitingGamesForChallenger((int) $lockedChallenge->challenger_id, (int) $lockedChallenge->id);
+            }
+
+            $debited = $this->debitStake($joiner, $lockedChallenge, $fee, "Challenge accepted. Ref: $lockedChallenge->uid");
+            if (! $debited) {
+                throw new \RuntimeException('KING_ACCEPT_DEBIT_FAILED');
+            }
+
+            $lockedChallenge->opponent_id = $joiner->id;
+            $lockedChallenge->opponent_amount = $fee;
+            $lockedChallenge->amount = $fee * 2; // pot = 2 × entry
+            $lockedChallenge->status = 1;
+            $lockedChallenge->is_lock = 0;
+            $lockedChallenge->save();
+        });
+        } catch (\RuntimeException $e) {
+            if ($e->getMessage() === 'KING_ACCEPT_DEBIT_FAILED') {
+                $insufficient = true;
+                $debited = false;
+            } else {
+                throw $e;
+            }
+        }
+
+        if ($alreadyDone) {
+            return ['ok' => true, 'reason' => 'already accepted'];
+        }
+
+        if ($conflict) {
+            KingEventLog::write('sys', 'KingAcceptRequest', 'error',
+                "CONSISTENCY: King confirmed accept for table {$challenge->king_table_id} but challenge #{$challenge->id} is no longer waiting.");
+
+            return ['ok' => false, 'reason' => 'Game Challenge already accepted'];
+        }
+
+        if ($insufficient || ! $debited) {
             // Extremely rare race: balance dropped between the HTTP pre-check
             // and King's confirmation. The King table is already "Start", so
-            // cancel it on the network and locally.
+            // cancel it on the network and locally. Other waiting tables were
+            // NOT dismissed (balance was checked first).
             KingEventLog::write('sys', 'KingAcceptRequest', 'warning',
                 "Accept confirmed by King but user #{$joiner->id} had insufficient local balance (need {$fee}). Cancelling table {$challenge->king_table_id}.");
 
@@ -95,20 +157,12 @@ class KingSettlementService
             $challenge->is_lock = 0;
             $challenge->save();
 
-            if (! is_king_ghost_user($challenge->challenger_id)) {
-                $this->refunds->refundUserStake((int) $challenge->id, (int) $challenge->challenger_id, "Challenge Refund Ref: {$challenge->uid}");
-            }
+            $this->refunds->refundAllStakes($challenge);
 
             return ['ok' => false, 'reason' => 'Insufficient Balance'];
         }
 
-        $challenge->opponent_id = $joiner->id;
-        $challenge->opponent_amount = $fee;
-        $challenge->amount = $fee * 2; // pot = 2 × entry
-        $challenge->status = 1;
-        $challenge->is_lock = 0;
-        $challenge->save();
-
+        $challenge->refresh();
         $this->notifyUser($challenge->challenger, 'Challenge accepted', 'Game Challenge accepted: ' . $challenge->uid, 'accept', $joiner->id);
 
         return ['ok' => true, 'reason' => 'accepted'];
@@ -371,17 +425,11 @@ class KingSettlementService
      */
     public function refundLocalSides(GameChallenge $challenge): void
     {
-        foreach ([(int) $challenge->challenger_id, (int) $challenge->opponent_id] as $userId) {
-            if (! $userId || is_king_ghost_user($userId)) {
-                continue;
-            }
-
-            try {
-                $this->refunds->refundUserStake((int) $challenge->id, $userId, "Challenge Refund Ref: {$challenge->uid}");
-            } catch (\Throwable $e) {
-                Log::error('[King] refund failed', ['challenge_id' => $challenge->id, 'user_id' => $userId, 'error' => $e->getMessage()]);
-                KingEventLog::write('sys', null, 'error', "Refund failed for user #$userId on challenge #{$challenge->id}: " . $e->getMessage());
-            }
+        try {
+            $this->refunds->refundAllStakes($challenge);
+        } catch (\Throwable $e) {
+            Log::error('[King] refund failed', ['challenge_id' => $challenge->id, 'error' => $e->getMessage()]);
+            KingEventLog::write('sys', null, 'error', "Refund failed on challenge #{$challenge->id}: " . $e->getMessage());
         }
     }
 
