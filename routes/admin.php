@@ -92,7 +92,7 @@ Route::group(['as' => 'admin::', 'middleware' => 'auth:admin'], function () {
 	Route::post("update-transaction-status", [AdminController::class, 'update_transaction_status']);
 	Route::get("contact-enquires", [AdminController::class, 'contact_enquires']);
 
-	Route::get("report", [UserController::class, 'index']);
+	Route::get("users-sponsor-search", [UserController::class, 'searchSponsors']);
 
 	Route::get("game-credit-and-debit", [WalletController::class, 'index']);
 	Route::get("win-credit-and-debit", [WalletController::class, 'index']);

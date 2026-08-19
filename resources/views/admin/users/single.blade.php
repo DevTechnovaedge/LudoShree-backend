@@ -206,11 +206,10 @@
                                         <div class="col-md-3">
                                             <div class="form-group">
                                                 <label for="sponsor">Sponsor</label>
-                                                <select name="sponsor_id" id="sponsor" class="form-control select2">
-                                                    <option value="" selected disabled>Choose...</option>
-                                                    <option value="0" {{ ( $record->refer_by ?? 0 ) == 0 ? 'selected' : '' }}>None</option>
+                                                <select name="sponsor_id" id="sponsor" class="form-control sponsor-select2" data-placeholder="Search name, UID or mobile" data-exclude-id="{{ $record->id ?? 0 }}" data-search-url="{{ url('admin/users-sponsor-search') }}">
+                                                    <option value="0" {{ (int) ($record->refer_by ?? 0) === 0 ? 'selected' : '' }}>None</option>
                                                     @foreach(($sponsorUsers ?? collect()) as $refer_user)
-                                                    <option value="{{ $refer_user->id }}" {{ ( $record->refer_by ?? 0 ) == $refer_user->id ? 'selected' : '' }}>{{ $refer_user->name }} <small>(UID: {{ $refer_user->uid }})</small></option>
+                                                    <option value="{{ $refer_user->id }}" {{ (int) ($record->refer_by ?? 0) === (int) $refer_user->id ? 'selected' : '' }}>{{ $refer_user->name }} (UID: {{ $refer_user->uid }})</option>
                                                     @endforeach
                                                 </select>
                                                 @error('sponsor') <div class="text-danger">{{ $message }}</div> @enderror
@@ -812,5 +811,41 @@
             [0, 'asc']
         ]
     })
+
+    var $sponsor = $('#sponsor');
+    if ($sponsor.length) {
+        $sponsor.select2({
+            placeholder: $sponsor.data('placeholder') || 'Search name, UID or mobile',
+            allowClear: true,
+            width: '100%',
+            minimumInputLength: 0,
+            ajax: {
+                url: $sponsor.data('search-url'),
+                dataType: 'json',
+                delay: 250,
+                data: function (params) {
+                    return {
+                        q: params.term || '',
+                        page: params.page || 1,
+                        exclude_id: $sponsor.data('exclude-id') || 0
+                    };
+                },
+                processResults: function (data, params) {
+                    params.page = params.page || 1;
+                    var results = data.results || [];
+                    if (params.page === 1) {
+                        results = [{ id: 0, text: 'None' }].concat(results);
+                    }
+                    return {
+                        results: results,
+                        pagination: {
+                            more: !!(data.pagination && data.pagination.more)
+                        }
+                    };
+                },
+                cache: true
+            }
+        });
+    }
 </script>
 @endsection

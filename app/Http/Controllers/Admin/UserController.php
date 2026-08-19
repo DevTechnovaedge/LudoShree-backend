@@ -224,11 +224,7 @@ class UserController extends Controller
     {
         $this->authorize('permissions', [$this->permission_key, 'create']);
 
-        $sponsorUsers = User::active()
-            ->select('id', 'uid', 'name')
-            ->orderBy('name')
-            ->limit(500)
-            ->get();
+        $sponsorUsers = $this->currentSponsorUsers(null, old('sponsor_id'));
 
         return view()->exists($this->create_or_edit_view)
             ? view($this->create_or_edit_view, compact('sponsorUsers'))
@@ -276,7 +272,7 @@ class UserController extends Controller
             'refer_income'          => request()->refer_income,
             'kyc_document_front'    => $kyc_document_front,
             'kyc_document_back'     => $kyc_document_back,
-            'refer_by'              => request()->sponsor_id == request()->id ? 0 : request()->sponsor_id,
+            'refer_by'              => ((int) request()->sponsor_id === (int) request()->id) ? 0 : (int) request()->sponsor_id,
             'remark'                => request()->remark,
             'kyc_status'            => request()->kyc_status,
             'withdrawal_status'     => request()->withdrawal_status,
@@ -371,13 +367,7 @@ class UserController extends Controller
 
         $record->game_challenges = $game_challenges;
 
-        // Avoid loading every active user into the sponsor dropdown (memory exhaustion).
-        $sponsorUsers = User::active()
-            ->select('id', 'uid', 'name')
-            ->where('id', '!=', $id)
-            ->orderBy('name')
-            ->limit(500)
-            ->get();
+        $sponsorUsers = $this->currentSponsorUsers((int) $id, old('sponsor_id', $record->refer_by));
 
         $referralCommissionByUser = CommissionHistory::query()
             ->whereReferBy($id)
@@ -424,6 +414,69 @@ class UserController extends Controller
         $record->delete();
 
         return back()->with('back_msg', "<div class='alert alert-success'>Record deleted successfully</div>");
+    }
+
+    /**
+     * AJAX Select2 search for the sponsor (refer_by) dropdown.
+     * Previously only the first 500 names were rendered, so most users never appeared.
+     */
+    public function searchSponsors(Request $request)
+    {
+        $this->authorize('permissions', [$this->permission_key, 'view']);
+
+        $q = trim((string) $request->get('q', ''));
+        $excludeId = (int) $request->get('exclude_id', 0);
+        $page = max(1, (int) $request->get('page', 1));
+        $perPage = 30;
+
+        $users = User::query()
+            ->withoutGlobalScope('verified_mobile')
+            ->select('id', 'uid', 'name', 'mobile')
+            ->when($excludeId > 0, fn ($query) => $query->where('id', '!=', $excludeId))
+            ->where(function ($query) {
+                $query->where('is_king_player', 0)->orWhereNull('is_king_player');
+            })
+            ->when($q !== '', function ($query) use ($q) {
+                $like = '%'.str_replace(['%', '_'], ['\\%', '\\_'], $q).'%';
+                $query->where(function ($inner) use ($q, $like) {
+                    $inner->where('name', 'like', $like)
+                        ->orWhere('uid', 'like', $like)
+                        ->orWhere('mobile', 'like', $like)
+                        ->orWhere('refer_code', 'like', $like);
+                    if (ctype_digit($q)) {
+                        $inner->orWhere('id', (int) $q);
+                    }
+                });
+            })
+            ->orderBy('name')
+            ->paginate($perPage, ['*'], 'page', $page);
+
+        return response()->json([
+            'results' => $users->getCollection()->map(fn (User $user) => [
+                'id' => $user->id,
+                'text' => $user->name.' (UID: '.$user->uid.')',
+            ])->values(),
+            'pagination' => [
+                'more' => $users->hasMorePages(),
+            ],
+        ]);
+    }
+
+    /**
+     * Only the currently selected sponsor is preloaded; the rest are fetched via searchSponsors().
+     */
+    private function currentSponsorUsers(?int $excludeUserId, mixed $sponsorId): \Illuminate\Support\Collection
+    {
+        $sponsorId = (int) $sponsorId;
+        if ($sponsorId <= 0 || ($excludeUserId && $sponsorId === $excludeUserId)) {
+            return collect();
+        }
+
+        return User::query()
+            ->withoutGlobalScope('verified_mobile')
+            ->select('id', 'uid', 'name')
+            ->whereKey($sponsorId)
+            ->get();
     }
 
     /**
