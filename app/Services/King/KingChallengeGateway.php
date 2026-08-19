@@ -208,6 +208,20 @@ class KingChallengeGateway
 
                 case 'loser':
                     if ($challenge->isKingLinked()) {
+                        if (
+                            (int) $challenge->status === 4
+                            && $user
+                            && $this->userSideStatus($challenge, $user->id) === 2
+                        ) {
+                            $winnerId = (int) $user->id === (int) $challenge->challenger_id
+                                ? $challenge->opponent_id
+                                : $challenge->challenger_id;
+                            $winner = User::find($winnerId);
+                            if ($winner && ! is_king_ghost_user($winner)) {
+                                $this->settlement->creditWinnerPayoutIfMissing($challenge, $winner);
+                            }
+                        }
+
                         $this->pushSideResults($challenge);
                     }
                     break;

@@ -22,6 +22,8 @@ use App\Models\ReferCodeRequest;
 
 use App\Services\GameChallengeLkApiSubmitResolver;
 use App\Services\GameChallengeStakeRefundService;
+use App\Services\GameChallengeAutoSettleService;
+use App\Services\GameChallengeWinnerPayoutService;
 use App\Services\GameChallengeWaitingDismissService;
 use App\Services\King\KingChallengeGateway;
 use App\Services\LkGameApiService;
@@ -789,6 +791,10 @@ class ApiController extends Controller
                 return response()->json(['status' =>  false, 'message' => 'Game Challenge not found']);
             endif;
 
+            $autoSettle = app(GameChallengeAutoSettleService::class);
+            $autoSettle->settleIfDecided($game_challenge);
+            $game_challenge->refresh();
+
             // if($game_challenge->status == 2 || $game_challenge->status == 7):
             //     return json_encode(['status' => false, 'message' => "Already cancelled"]);
             // endif;
@@ -796,13 +802,22 @@ class ApiController extends Controller
             if($game_challenge->status == 4):
                 return json_encode(['status' => false, 'message' => "Already completed"]);
             endif;
+
+            if ((int) $game_challenge->challenger_status === 3
+                && (int) $game_challenge->opponent_status === 3
+                && in_array((int) $game_challenge->status, [3, 7], true)):
+                return json_encode(['status' => false, 'message' => "Already cancelled"]);
+            endif;
             
             if($game_challenge->status == 6):
                 return json_encode(['status' => false, 'message' => "Already suspended"]);
             endif;
 
             if ($game_challenge->is_lock) :
-                return response()->json(['status' =>  false, 'message' => 'Game Status updating please wait.....']);
+                if (! $autoSettle->clearStaleLock($game_challenge)) {
+                    return response()->json(['status' =>  false, 'message' => 'Game Status updating please wait.....']);
+                }
+                $game_challenge->refresh();
             endif;
 
             lock_game_challenge($game_challenge);
@@ -1318,7 +1333,14 @@ class ApiController extends Controller
                     }
 
                     if ($alreadyThisSide) {
-                        $cancelAlreadyDone = true;
+                        if ((int) $locked->challenger_status === 3
+                            && (int) $locked->opponent_status === 3
+                            && ! in_array((int) $locked->status, [3, 7], true)) {
+                            $locked->status = 3;
+                            $fullyClosed = true;
+                        } else {
+                            $cancelAlreadyDone = true;
+                        }
                     } elseif (! $hasOpponent || ! $hasRoomcode || $otherSideCancelled) {
                         $locked->status = 3;
                         $locked->challenger_status = 3;
@@ -1334,6 +1356,9 @@ class ApiController extends Controller
                         }
                         $fullyClosed = (int) $locked->challenger_status === 3
                             && (int) $locked->opponent_status === 3;
+                        if ($fullyClosed) {
+                            $locked->status = 3;
+                        }
                     }
 
                     $locked->is_lock = 0;
@@ -1592,6 +1617,8 @@ class ApiController extends Controller
                     # Complete
                     if ($game_challenge->opponent_status == 2):
                         $status                         =   4;
+                        app(GameChallengeWinnerPayoutService::class)
+                            ->creditWinnerIfMissing($game_challenge, $user);
                         $refer_commission               =   game_commission_slot()->refer_commission;
 
                         $refer_commission_amount        =   ($game_challenge->challenger_amount * $refer_commission) / 100;
@@ -1677,6 +1704,8 @@ class ApiController extends Controller
                     # Complete
                     if ($game_challenge->challenger_status == 2):
                         $status                         =   4;
+                        app(GameChallengeWinnerPayoutService::class)
+                            ->creditWinnerIfMissing($game_challenge, $user);
                         $refer_commission               =   game_commission_slot()->refer_commission;
                         $refer_commission_amount        =   ($game_challenge->challenger_amount * $refer_commission) / 100;
 
@@ -1917,39 +1946,9 @@ class ApiController extends Controller
                     $opponent_user              =   User::find($game_challenge->opponent_id);
 
                     # King ghost opponents are paid on their OWN platform - never here.
-                    if (! is_king_ghost_user($opponent_user)):
-
-                    $win_amount                 =   $game_challenge->paid_amount;
-                    $total_balance              =   $opponent_user->win_wallet_amount + $win_amount;
-
-                  Wallet::create([
-                        'user_id'               =>  $opponent_user->id,
-                        'game_challenge_id'     =>  $id,
-                        'type'                  =>  'credit',
-                        'wallet_type'           =>  'win',
-                        'remark'                =>  "Winner amount Ref: $game_challenge->uid",
-                        'amount'                =>  $win_amount,
-                        'total_balance'         =>  $total_balance,
-                        'status'                =>  1
-                    ]);
-
-                    $opponent_user->win_wallet_amount           =   $total_balance;
-                    $opponent_user->save();
-
-                    # ===========================================================================
-                    #   Notification
-                    # ===========================================================================
-                    # Notification
-                    safe_notify(
-                        optional($game_challenge->opponent)->fcm_device_token,
-                        'Winner',
-                        "Congratulation, you win. Ref: $game_challenge->uid",
-                        'winner',
-                        $this->user()->id,
-                        ['game_challenge_id' => $game_challenge->id]
-                    );
-                # Notification
-
+                    if ($opponent_user && ! is_king_ghost_user($opponent_user)):
+                        app(GameChallengeWinnerPayoutService::class)
+                            ->creditWinnerIfMissing($game_challenge, $opponent_user);
                     endif;
                     # End King ghost opponent guard
 
@@ -2043,41 +2042,9 @@ class ApiController extends Controller
                     $challenger_user            =   User::find($game_challenge->challenger_id);
 
                     # King ghost challengers are paid on their OWN platform - never here.
-                    if (! is_king_ghost_user($challenger_user)):
-
-                    $win_amount                 =   $game_challenge->paid_amount;
-                    $total_balance              =   $challenger_user->win_wallet_amount + $win_amount;
-
-                    Wallet::create([
-                        'user_id'               =>  $challenger_user->id,
-                        'game_challenge_id'     =>  $id,
-                        'type'                  =>  'credit',
-                        'wallet_type'           =>  'win',
-                        'remark'                =>  "Winner amount Ref: $game_challenge->uid",
-                        'amount'                =>  $win_amount,
-                        'total_balance'         =>  $total_balance,
-                        'status'                =>  1
-                    ]);
-
-                    $challenger_user->win_wallet_amount           =   $total_balance;
-                    $challenger_user->save();
-                    # ===========================================================================
-                    #   End Wallet
-                    # ===========================================================================
-
-                    # ===========================================================================
-                    #   Notification
-                    # ===========================================================================
-                    safe_notify(
-                        optional($game_challenge->challenger)->fcm_device_token,
-                        'Winner',
-                        "Congratulation, you win. Ref: $game_challenge->uid",
-                        'winner',
-                        $this->user()->id,
-                        ['game_challenge_id' => $game_challenge->id]
-                    );
-                # Notification
-
+                    if ($challenger_user && ! is_king_ghost_user($challenger_user)):
+                        app(GameChallengeWinnerPayoutService::class)
+                            ->creditWinnerIfMissing($game_challenge, $challenger_user);
                     endif;
                     # End King ghost challenger guard
 
@@ -2219,11 +2186,9 @@ class ApiController extends Controller
                 }
             }
 
-            # ===========================================================================
-            #   Response
-            # ===========================================================================
-
-            if (request()->type === 'cancel') {
+            if (in_array(request()->type, ['cancel', 'winner', 'loser'], true)) {
+                $game_challenge = app(GameChallengeAutoSettleService::class)
+                    ->settleIfDecided($game_challenge);
                 $user->refresh();
             }
 

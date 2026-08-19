@@ -6,6 +6,7 @@ use App\Models\GameChallenge\GameChallenge;
 use App\Models\GameChallenge\CommissionHistory;
 use App\Models\GameChallenge\Wallet;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Applies the same winnings settlement as admin "challenger win" / "opponent win" actions.
@@ -221,5 +222,64 @@ class GameChallengeWinnerPayoutService
             $game_challenge->opponent_id,
             ['game_challenge_id' => $game_challenge->id]
         );
+    }
+
+    /**
+     * One-time winner credit. Safe from winner, loser, auto-settle, and King paths.
+     */
+    public function creditWinnerIfMissing(GameChallenge $challenge, User $winner): bool
+    {
+        if (is_king_ghost_user($winner)) {
+            return false;
+        }
+
+        return (bool) DB::transaction(function () use ($challenge, $winner) {
+            $locked = User::query()->withoutGlobalScopes()->lockForUpdate()->find($winner->id);
+            if (! $locked) {
+                return false;
+            }
+
+            $alreadyPaid = Wallet::query()
+                ->where('game_challenge_id', $challenge->id)
+                ->where('user_id', $locked->id)
+                ->where('type', 'credit')
+                ->where(function ($q) {
+                    $q->where('remark', 'like', 'Winner amount Ref:%')
+                        ->orWhere('remark', 'like', 'Winner Ref:%');
+                })
+                ->exists();
+
+            if ($alreadyPaid) {
+                return false;
+            }
+
+            $winAmount = (float) $challenge->paid_amount;
+            $total = (float) $locked->win_wallet_amount + $winAmount;
+
+            Wallet::create([
+                'user_id' => $locked->id,
+                'game_challenge_id' => $challenge->id,
+                'type' => 'credit',
+                'wallet_type' => 'win',
+                'remark' => "Winner amount Ref: $challenge->uid",
+                'amount' => $winAmount,
+                'total_balance' => $total,
+                'status' => 1,
+            ]);
+
+            $locked->win_wallet_amount = $total;
+            $locked->save();
+
+            safe_notify(
+                $locked->fcm_device_token,
+                'Winner',
+                "Congratulation, you win. Ref: $challenge->uid",
+                'winner',
+                $locked->id,
+                ['game_challenge_id' => $challenge->id]
+            );
+
+            return true;
+        });
     }
 }

@@ -75,6 +75,10 @@ class Kernel extends ConsoleKernel
             ->everyMinute()
             ->withoutOverlapping(4);
 
+        $schedule->command('game:settle-stuck-challenges')
+            ->everyMinute()
+            ->withoutOverlapping(4);
+
     }
 
     /**

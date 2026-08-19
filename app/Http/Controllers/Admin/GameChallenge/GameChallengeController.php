@@ -8,6 +8,7 @@ use App\Models\GameChallenge\GameChallenge;
 use App\Models\GameChallenge\Wallet;
 use App\Models\User;
 use App\Services\GameChallengeWinnerPayoutService;
+use App\Services\GameChallengeAutoSettleService;
 use Illuminate\Http\Request;
 class GameChallengeController extends Controller
 {
@@ -338,6 +339,24 @@ class GameChallengeController extends Controller
         
         $game_challenge                     =   GameChallenge::whereUid($game_challenge_id)->first();
 
+        if (! $game_challenge) {
+            return response()->json(['status' => false, 'message' => 'Game Challenge not found']);
+        }
+
+        $autoSettle = app(GameChallengeAutoSettleService::class);
+        $statusBefore = (int) $game_challenge->status;
+        $autoSettle->settleIfDecided($game_challenge);
+        $game_challenge->refresh();
+
+        if ($statusBefore !== 4 && (int) $game_challenge->status === 4) {
+            return response()->json(['status' => true, 'message' => 'Game auto-resolved from matching win/lose results']);
+        }
+
+        if (! in_array($statusBefore, [3, 7], true)
+            && in_array((int) $game_challenge->status, [3, 7], true)) {
+            return response()->json(['status' => true, 'message' => 'Game auto-cancelled because both players cancelled']);
+        }
+
         if(($game_challenge->status == 3 && $game_challenge->challenger_status == 3 && $game_challenge->opponent_status == 3 ) || $game_challenge->status == 7):
             return json_encode(['status' => false, 'message' => "Already cancelled"]);
         endif;
@@ -351,7 +370,10 @@ class GameChallengeController extends Controller
         endif;
 
         if ($game_challenge->is_lock) :
-            return response()->json(['status' =>  false, 'message' => 'Game Status updating please wait.....']);
+            if (! $autoSettle->clearStaleLock($game_challenge)) {
+                return response()->json(['status' =>  false, 'message' => 'Game Status updating please wait.....']);
+            }
+            $game_challenge->refresh();
         endif;
         
         lock_game_challenge($game_challenge);
