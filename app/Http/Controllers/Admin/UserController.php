@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\GameChallenge\Wallet;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\DB;
 use App\Models\GameChallenge\CommissionHistory;
 use App\Models\GameChallenge\GameChallenge;
 
@@ -424,60 +424,36 @@ class UserController extends Controller
     {
         $this->authorize('permissions', [$this->permission_key, 'view']);
 
-        $q = trim((string) ($request->get('q') ?: $request->get('term') ?: ''));
-        $excludeId = (int) $request->get('exclude_id', 0);
-        $page = max(1, (int) $request->get('page', 1));
+        $raw = trim((string) ($request->input('q', $request->input('term', ''))));
+        $excludeId = (int) $request->input('exclude_id', 0);
+        $page = max(1, (int) $request->input('page', 1));
         $perPage = 50;
 
-        $needle = mb_strtolower(preg_replace('/\s+/u', ' ', $q) ?? '', 'UTF-8');
-        $compact = preg_replace('/\s+/u', '', $needle) ?? '';
-        $like = '%'.str_replace(['%', '_'], ['\\%', '\\_'], $needle).'%';
-        $likeCompact = '%'.str_replace(['%', '_'], ['\\%', '\\_'], $compact).'%';
-        $starts = str_replace(['%', '_'], ['\\%', '\\_'], $needle).'%';
+        $needle = mb_strtolower($raw, 'UTF-8');
+        $like = '%'.addcslashes($needle, '%_\\').'%';
 
-        $users = User::query()
-            ->withoutGlobalScopes()
-            ->select('id', 'uid', 'name', 'mobile')
-            ->when($excludeId > 0, fn ($query) => $query->where('id', '!=', $excludeId))
-            ->when($needle !== '', function ($query) use ($q, $like, $likeCompact, $needle) {
-                $query->where(function ($inner) use ($q, $like, $likeCompact, $needle) {
-                    $inner->whereRaw('LOWER(TRIM(COALESCE(name, ""))) LIKE ?', [$like])
-                        ->orWhereRaw('LOWER(TRIM(COALESCE(uid, ""))) LIKE ?', [$like])
-                        ->orWhereRaw('LOWER(TRIM(COALESCE(mobile, ""))) LIKE ?', [$like])
-                        ->orWhereRaw('LOWER(TRIM(COALESCE(email, ""))) LIKE ?', [$like])
-                        ->orWhereRaw('LOWER(TRIM(COALESCE(refer_code, ""))) LIKE ?', [$like])
-                        ->orWhereRaw(
-                            'LOWER(REPLACE(REPLACE(REPLACE(COALESCE(name, ""), " ", ""), ".", ""), "-", "")) LIKE ?',
-                            [$likeCompact]
-                        );
+        $query = DB::table('users')
+            ->select('id', 'uid', 'name', 'mobile', 'email')
+            ->when($excludeId > 0, fn ($q) => $q->where('id', '!=', $excludeId));
 
-                    if (ctype_digit($q)) {
-                        $inner->orWhere('id', (int) $q)
-                            ->orWhere('mobile', 'like', '%'.$q.'%');
-                    }
+        if ($needle !== '') {
+            $query->where(function ($q) use ($like, $raw) {
+                $q->whereRaw('LOWER(name) LIKE ?', [$like])
+                    ->orWhereRaw('LOWER(uid) LIKE ?', [$like])
+                    ->orWhereRaw('LOWER(IFNULL(mobile, ?)) LIKE ?', ['', $like])
+                    ->orWhereRaw('LOWER(IFNULL(email, ?)) LIKE ?', ['', $like]);
 
-                    if (strlen($needle) >= 3) {
-                        $inner->orWhereRaw('SOUNDEX(name) = SOUNDEX(?)', [$q]);
-                    }
-                });
-            })
-            ->when($needle !== '', function ($query) use ($needle, $starts) {
-                $query->orderByRaw(
-                    'CASE
-                        WHEN LOWER(TRIM(COALESCE(name, ""))) = ? THEN 0
-                        WHEN LOWER(TRIM(COALESCE(uid, ""))) = ? THEN 0
-                        WHEN LOWER(TRIM(COALESCE(name, ""))) LIKE ? THEN 1
-                        WHEN LOWER(TRIM(COALESCE(uid, ""))) LIKE ? THEN 1
-                        ELSE 2
-                    END',
-                    [$needle, $needle, $starts, $starts]
-                );
-            })
-            ->orderBy('name')
-            ->paginate($perPage, ['*'], 'page', $page);
+                if (ctype_digit($raw)) {
+                    $q->orWhere('id', (int) $raw);
+                }
+            });
+            $query->orderByRaw('LOWER(name) = ? DESC', [$needle]);
+        }
+
+        $users = $query->orderBy('name')->paginate($perPage, ['*'], 'page', $page);
 
         return response()->json([
-            'results' => $users->getCollection()->map(fn (User $user) => [
+            'results' => collect($users->items())->map(fn ($user) => [
                 'id' => (string) $user->id,
                 'text' => trim((string) $user->name).' (UID: '.$user->uid.')',
             ])->values(),
