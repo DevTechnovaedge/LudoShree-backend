@@ -110,12 +110,15 @@ class UpiGatewayController extends Controller
             return ['status' => false, 'message' => 'UPI Gateway API key not configured'];
         }
 
-        $user = User::find($transaction->user_id);
+        $user = User::withoutGlobalScopes()->find($transaction->user_id);
+        if (!$user) {
+            return ['status' => false, 'message' => 'User not found for deposit'];
+        }
 
         $response = Http::acceptJson()->post(self::BASE_URL . '/create_order', [
             'key'             => $key,
             'client_txn_id'   => $transaction->txn_id,
-            'amount'          => (string) (int) $transaction->amount,
+            'amount'          => $this->formatGatewayAmount($transaction->amount),
             'p_info'          => 'Wallet Deposit',
             'customer_name'   => $user->name ?: 'User '.$user->id,
             'customer_email'  => $user->email ?: 'noreply@merifactory.com',
@@ -123,6 +126,7 @@ class UpiGatewayController extends Controller
             // Plain URL only — many gateways append "?client_txn_id=…&txn_id=…".
             // If we pass "?txn_id=…" here they add another "?", breaking the query string.
             'redirect_url'    => url('upigateway/return'),
+            'webhook_url'     => url('upigateway/webhook'),
             'udf1'            => (string) $user->id,
             'udf2'            => (string) $transaction->id,
             'udf3'            => 'wallet_deposit',
@@ -140,7 +144,7 @@ class UpiGatewayController extends Controller
 
         $body = $response->json() ?? [];
 
-        if (!($body['status'] ?? false)) {
+        if (! $this->gatewayEnvelopeOk($body)) {
             Log::warning('[UPI Gateway] create_order rejected by provider', $body);
             return ['status' => false, 'message' => $body['msg'] ?? 'Failed to create order'];
         }
@@ -192,9 +196,11 @@ class UpiGatewayController extends Controller
             return response()->json(['status' => false, 'message' => 'Unauthorized'], 401);
         }
 
-        $payload = $request->all();
+        $payload = $this->inboundGatewayPayload($request);
 
-        $clientRaw = $payload['client_txn_id'] ?? data_get($payload, 'data.client_txn_id');
+        $clientRaw = $payload['client_txn_id']
+            ?? $payload['clientTxnId']
+            ?? data_get($payload, 'data.client_txn_id');
         $clientTxnId = is_scalar($clientRaw) ? trim((string) $clientRaw) : '';
 
         Log::info('[UPI Gateway] webhook inbound', [
@@ -202,8 +208,8 @@ class UpiGatewayController extends Controller
             'content_type'   => $request->header('Content-Type'),
             'client_txn_id'  => $clientTxnId !== '' ? $clientTxnId : '(missing)',
             'payload_keys'   => array_keys($payload),
-            'status_raw'     => isset($payload['status']) ? (string) $payload['status'] : null,
-            'provider_order_id' => $payload['id'] ?? null,
+            'status_raw'     => $this->stringifyMixed($payload['status'] ?? null),
+            'provider_order_id' => $payload['id'] ?? $payload['order_id'] ?? null,
             'payload_json'   => substr(json_encode($payload, JSON_UNESCAPED_UNICODE), 0, 3500),
         ]);
 
@@ -226,18 +232,13 @@ class UpiGatewayController extends Controller
             return response()->json(['status' => true]);
         }
 
-        $hookStatus = strtolower(trim((string) ($payload['status'] ?? '')));
-        $upiTxnId = trim((string) ($payload['upi_txn_id'] ?? ''));
-
-        $failStatuses = ['failure', 'failed', 'cancelled', 'canceled', 'expired', 'close', 'closed', 'declined'];
+        $hookStatus = $this->resolvePaymentStatusFromPayload($payload);
+        $upiTxnId = $this->extractUtr($payload);
 
         $hasDefinitiveHook = $hookStatus !== ''
-            && (
-                $hookStatus === 'success'
-                || in_array($hookStatus, $failStatuses, true)
-            );
+            && ($this->isGatewaySuccessStatus($hookStatus) || $this->isGatewayFailureStatus($hookStatus));
 
-        if (in_array($hookStatus, ['scanning', 'pending', 'created', 'processing'], true)) {
+        if ($this->isGatewayPendingStatus($hookStatus)) {
             Log::info('[UPI Gateway] webhook non-terminal status; syncing via API', [
                 'client_txn_id' => $clientTxnId,
                 'hook_status'    => $hookStatus,
@@ -365,7 +366,7 @@ class UpiGatewayController extends Controller
             'body_keys'              => array_keys($request->request->all()),
         ]);
 
-        $this->syncStatus($txnId);
+        $this->syncStatus($txnId, 1);
 
         $record = $txnId !== null
             ? Transaction::whereTxnId($txnId)->first()
@@ -382,7 +383,7 @@ class UpiGatewayController extends Controller
                     ->first();
                 if ($gp && $gp->client_txn_id) {
                     $txnId = $gp->client_txn_id;
-                    $this->syncStatus($txnId);
+                    $this->syncStatus($txnId, 1);
                     $record = Transaction::whereTxnId($txnId)->first();
                     Log::info('[UPI Gateway] return resolved transaction via gateway_order_id', [
                         'gateway_order_id' => $orderId,
@@ -406,16 +407,20 @@ class UpiGatewayController extends Controller
 
     /**
      * Dates to try with check_order_status (gateway expects calendar date of txn; IST vs UTC often mismatches).
+     * Transaction::$created_at is a formatted accessor, so always use the raw DB value.
      *
      * @return list<string>
      */
     private function txnDatesForGatewayCheck(Transaction $transaction): array
     {
-        $created = $transaction->created_at instanceof Carbon
-            ? $transaction->created_at->copy()
-            : Carbon::parse((string) $transaction->created_at);
+        $created = $this->transactionCreatedAt($transaction);
 
         $out = [];
+        $istNow = Carbon::now('Asia/Kolkata');
+        $out[] = $istNow->format('d-m-Y');
+        $out[] = $istNow->copy()->subDay()->format('d-m-Y');
+        $out[] = $istNow->copy()->addDay()->format('d-m-Y');
+
         foreach (['Asia/Kolkata', (string) (config('app.timezone') ?: 'UTC'), 'UTC'] as $tz) {
             if (! is_string($tz) || $tz === '') {
                 continue;
@@ -435,8 +440,10 @@ class UpiGatewayController extends Controller
     /**
      * Pull latest status from UPI Gateway and update wallet/transaction atomically.
      * Public so the API layer can re-verify a transaction on demand.
+     *
+     * @param  int  $pendingRetries  Extra check_order_status passes when the provider is still scanning.
      */
-    public function syncStatus(?string $clientTxnId): void
+    public function syncStatus(?string $clientTxnId, int $pendingRetries = 0): void
     {
         $clientTxnId = $clientTxnId !== null ? trim($clientTxnId) : '';
         if ($clientTxnId === '') {
@@ -445,22 +452,39 @@ class UpiGatewayController extends Controller
             return;
         }
 
+        $passes = max(1, 1 + max(0, $pendingRetries));
+        for ($pass = 0; $pass < $passes; $pass++) {
+            $outcome = $this->syncStatusOnce($clientTxnId);
+            if (in_array($outcome, ['credited', 'failed', 'missing', 'skipped'], true)) {
+                return;
+            }
+            if ($pass + 1 < $passes) {
+                usleep(1_500_000);
+            }
+        }
+    }
+
+    /**
+     * @return 'credited'|'failed'|'pending'|'unknown'|'missing'|'skipped'
+     */
+    private function syncStatusOnce(string $clientTxnId): string
+    {
         $transaction = Transaction::whereTxnId($clientTxnId)->first();
-        if (!$transaction || $transaction->status == 1) {
+        if (!$transaction || (int) $transaction->status === 1) {
             Log::debug('[UPI Gateway] syncStatus skipped', [
                 'client_txn_id' => $clientTxnId,
                 'found'         => (bool) $transaction,
                 'already_ok'    => $transaction && (int) $transaction->status === 1,
             ]);
 
-            return;
+            return $transaction ? 'skipped' : 'missing';
         }
 
         $key = $this->apiKey();
         if (!$key) {
             Log::warning('[UPI Gateway] syncStatus aborted: API key empty in site settings');
 
-            return;
+            return 'unknown';
         }
 
         $dates = $this->txnDatesForGatewayCheck($transaction);
@@ -495,29 +519,17 @@ class UpiGatewayController extends Controller
                         ['key' => self::maskApiKey($postBody['key'] ?? '')]
                     ),
                     'http_status'   => $response->status(),
-                    'api_ok_flag'   => (bool) ($body['status'] ?? false),
+                    'api_ok_flag'   => $this->gatewayEnvelopeOk($body),
                     'api_msg'       => $body['msg'] ?? null,
                     'body_excerpt'  => substr($raw, 0, 2200),
                 ]);
 
-                if (!($body['status'] ?? false)) {
+                if (! $this->gatewayEnvelopeOk($body)) {
                     continue;
                 }
 
-                $remoteStatus = strtolower(trim((string) (
-                    data_get($body, 'data.status')
-                    ?? data_get($body, 'result.status')
-                    ?? data_get($body, 'data.txn_status')
-                    ?? data_get($body, 'data.payment_status')
-                    ?? data_get($body, 'status')
-                    ?? ''
-                )));
-                $upiTxnId = (string) (
-                    data_get($body, 'data.upi_txn_id')
-                    ?? data_get($body, 'result.upi_txn_id')
-                    ?? data_get($body, 'data.utr')
-                    ?? ''
-                );
+                $remoteStatus = $this->resolvePaymentStatusFromPayload($body);
+                $upiTxnId = $this->extractUtr($body);
 
                 Log::info('[UPI Gateway] check_order_status parsed', [
                     'client_txn_id'  => $clientTxnId,
@@ -527,11 +539,29 @@ class UpiGatewayController extends Controller
                     'utr_present'    => $upiTxnId !== '',
                 ]);
 
-                if (in_array($remoteStatus, ['scanning', 'pending', 'created', 'processing'], true) || $remoteStatus === '') {
-                    Log::info('[UPI Gateway] provider still non-terminal or empty status — not crediting wallet yet', [
+                if ($remoteStatus === '') {
+                    Log::info('[UPI Gateway] provider OK envelope but empty payment status — trying next date/variant', [
                         'client_txn_id' => $clientTxnId,
-                        'remote_status' => $remoteStatus !== '' ? $remoteStatus : '(empty)',
                     ]);
+                    continue;
+                }
+
+                if ($this->isGatewayPendingStatus($remoteStatus)) {
+                    Log::info('[UPI Gateway] provider still non-terminal — not crediting wallet yet', [
+                        'client_txn_id' => $clientTxnId,
+                        'remote_status' => $remoteStatus,
+                    ]);
+
+                    try {
+                        $this->finalizeFromGatewayStatus($transaction, $remoteStatus, $upiTxnId);
+                    } catch (\Throwable $e) {
+                        Log::error('[UPI Gateway] finalizeFromGatewayStatus failed (pending)', [
+                            'client_txn_id' => $clientTxnId,
+                            'error'         => $e->getMessage(),
+                        ]);
+                    }
+
+                    return 'pending';
                 }
 
                 try {
@@ -544,15 +574,26 @@ class UpiGatewayController extends Controller
                         'exception'     => $e::class,
                         'trace'         => substr($e->getTraceAsString(), 0, 6000),
                     ]);
+
+                    return 'unknown';
                 }
 
-                return;
+                if ($this->isGatewaySuccessStatus($remoteStatus)) {
+                    return 'credited';
+                }
+                if ($this->isGatewayFailureStatus($remoteStatus)) {
+                    return 'failed';
+                }
+
+                return 'pending';
             }
         }
 
         Log::warning('[UPI Gateway] check_order_status: all date/variant attempts failed or API error', [
             'client_txn_id' => $clientTxnId,
         ]);
+
+        return 'unknown';
     }
 
     /**
@@ -567,10 +608,8 @@ class UpiGatewayController extends Controller
             }
 
             $remoteStatus = strtolower(trim($remoteStatus));
-            $isSuccess = in_array($remoteStatus, ['success', 'successful', 'paid', 'completed'], true);
-            $isFailure = in_array($remoteStatus, [
-                'failure', 'failed', 'cancelled', 'canceled', 'expired', 'close', 'closed', 'declined',
-            ], true);
+            $isSuccess = $this->isGatewaySuccessStatus($remoteStatus);
+            $isFailure = $this->isGatewayFailureStatus($remoteStatus);
 
             $this->mergeGatewayPaymentInfo($t, $upiTxnId);
 
@@ -579,7 +618,14 @@ class UpiGatewayController extends Controller
                 $walletStatus = 1;
                 $t->status = 1;
 
-                $user = User::find($t->user_id);
+                $user = User::withoutGlobalScopes()->whereKey($t->user_id)->lockForUpdate()->first();
+                if (!$user) {
+                    Log::error('[UPI Gateway] finalize aborted: user missing', [
+                        'client_txn_id' => $t->txn_id,
+                        'user_id'       => $t->user_id,
+                    ]);
+                    throw new \RuntimeException('User not found for UPI deposit credit');
+                }
                 $user->game_wallet_amount = $user->game_wallet_amount + $t->amount;
                 $user->save();
 
@@ -591,8 +637,9 @@ class UpiGatewayController extends Controller
 
             $t->save();
 
+            $freshUser = User::withoutGlobalScopes()->find($t->user_id);
             Wallet::whereTransactionId($t->id)->update([
-                'win_and_game_total_amount' => User::find($t->user_id)->total_wallet_amount,
+                'win_and_game_total_amount' => $freshUser ? $freshUser->total_wallet_amount : null,
                 'status' => $walletStatus,
                 'remark' => 'Deposit Fund Via UPI Gateway (Order id : '.$t->txn_id.')',
             ]);
@@ -675,7 +722,7 @@ class UpiGatewayController extends Controller
     {
         $orderIdRaw = $payload['id'] ?? $payload['order_id'] ?? data_get($payload, 'data.order_id');
         $orderId = is_scalar($orderIdRaw) ? trim((string) $orderIdRaw) : '';
-        $upiTxnId = trim((string) ($payload['upi_txn_id'] ?? ''));
+        $upiTxnId = $this->extractUtr($payload);
 
         $excerpt = json_encode($payload, JSON_UNESCAPED_UNICODE);
         $excerpt = $excerpt !== false ? substr($excerpt, 0, 800) : null;
@@ -739,13 +786,11 @@ class UpiGatewayController extends Controller
     {
         $r = strtolower(trim($remoteStatus));
 
-        if (in_array($r, ['success', 'successful', 'paid', 'completed'], true)) {
+        if ($this->isGatewaySuccessStatus($r)) {
             return 'success';
         }
 
-        if (in_array($r, [
-            'failure', 'failed', 'cancelled', 'canceled', 'expired', 'close', 'closed', 'declined',
-        ], true)) {
+        if ($this->isGatewayFailureStatus($r)) {
             return 'failed';
         }
 
@@ -762,5 +807,205 @@ class UpiGatewayController extends Controller
             $user->id,
             ['user_id' => $user->id, 'context' => 'upi_deposit']
         );
+    }
+
+    private function formatGatewayAmount(mixed $amount): string
+    {
+        $n = round((float) $amount, 2);
+        if (abs($n - (int) $n) < 0.001) {
+            return (string) (int) $n;
+        }
+
+        return number_format($n, 2, '.', '');
+    }
+
+    private function transactionCreatedAt(Transaction $transaction): Carbon
+    {
+        $raw = $transaction->getRawOriginal('created_at');
+        if (is_string($raw) && $raw !== '') {
+            try {
+                return Carbon::parse($raw, (string) (config('app.timezone') ?: 'Asia/Kolkata'));
+            } catch (\Throwable $e) {
+                // fall through
+            }
+        }
+
+        return Carbon::now('Asia/Kolkata');
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function inboundGatewayPayload(Request $request): array
+    {
+        $payload = $request->all();
+        $raw = trim((string) $request->getContent());
+        if ($raw !== '' && ($raw[0] === '{' || $raw[0] === '[')) {
+            $json = json_decode($raw, true);
+            if (is_array($json)) {
+                $payload = array_replace($payload, $json);
+            }
+        }
+
+        $data = $payload['data'] ?? null;
+        if (is_array($data)) {
+            $payload = array_merge($payload, $data);
+        }
+
+        return $payload;
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function resolvePaymentStatusFromPayload(array $payload): string
+    {
+        $candidates = [
+            data_get($payload, 'data.status'),
+            data_get($payload, 'data.txn_status'),
+            data_get($payload, 'data.payment_status'),
+            data_get($payload, 'result.status'),
+            $payload['txn_status'] ?? null,
+            $payload['payment_status'] ?? null,
+            $payload['txnStatus'] ?? null,
+        ];
+
+        $top = $payload['status'] ?? null;
+        if ($this->isPaymentStatusValue($top)) {
+            $candidates[] = $top;
+        }
+
+        foreach ($candidates as $c) {
+            if ($this->isPaymentStatusValue($c)) {
+                return $this->normalizeStatusToken($c);
+            }
+        }
+
+        return '';
+    }
+
+    private function isPaymentStatusValue(mixed $v): bool
+    {
+        if ($v === null || $v === '') {
+            return false;
+        }
+        if (is_bool($v)) {
+            return false;
+        }
+        if (is_int($v) || is_float($v)) {
+            return true;
+        }
+        if (! is_string($v)) {
+            return false;
+        }
+
+        $s = strtolower(trim($v));
+
+        return ! in_array($s, ['true', 'false'], true);
+    }
+
+    private function normalizeStatusToken(mixed $v): string
+    {
+        if (is_int($v) || is_float($v)) {
+            $n = (int) $v;
+            if ($n === 1) {
+                return 'success';
+            }
+            if ($n === 0) {
+                return 'failure';
+            }
+
+            return (string) $v;
+        }
+
+        return strtolower(trim((string) $v));
+    }
+
+    private function isGatewaySuccessStatus(string $s): bool
+    {
+        return in_array(strtolower(trim($s)), [
+            'success', 'successful', 'paid', 'completed', 'complete',
+            'captured', 'txn_success', 'ok', '1',
+        ], true);
+    }
+
+    private function isGatewayFailureStatus(string $s): bool
+    {
+        return in_array(strtolower(trim($s)), [
+            'failure', 'failed', 'cancelled', 'canceled', 'expired',
+            'close', 'closed', 'declined', 'fail',
+        ], true);
+    }
+
+    private function isGatewayPendingStatus(string $s): bool
+    {
+        return in_array(strtolower(trim($s)), [
+            'scanning', 'pending', 'created', 'processing', 'initiated', 'queued',
+        ], true);
+    }
+
+    /**
+     * @param  array<string, mixed>  $body
+     */
+    private function gatewayEnvelopeOk(array $body): bool
+    {
+        $s = $body['status'] ?? null;
+        if ($s === false || $s === 0 || $s === '0' || $s === 'false') {
+            return false;
+        }
+        if ($s === true || $s === 1 || $s === '1' || $s === 'true') {
+            return true;
+        }
+        if (is_string($s) && $s !== '') {
+            $n = strtolower(trim($s));
+            if ($n === 'ok' || $this->isGatewaySuccessStatus($n) || $this->isGatewayPendingStatus($n) || $this->isGatewayFailureStatus($n)) {
+                return true;
+            }
+        }
+
+        return data_get($body, 'data.status') !== null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function extractUtr(array $payload): string
+    {
+        $candidates = [
+            $payload['upi_txn_id'] ?? null,
+            $payload['utr'] ?? null,
+            $payload['bank_ref'] ?? null,
+            $payload['upiTxnId'] ?? null,
+            data_get($payload, 'data.upi_txn_id'),
+            data_get($payload, 'data.utr'),
+            data_get($payload, 'result.upi_txn_id'),
+        ];
+
+        foreach ($candidates as $c) {
+            if (is_scalar($c)) {
+                $s = trim((string) $c);
+                if ($s !== '') {
+                    return $s;
+                }
+            }
+        }
+
+        return '';
+    }
+
+    private function stringifyMixed(mixed $v): ?string
+    {
+        if ($v === null) {
+            return null;
+        }
+        if (is_bool($v)) {
+            return $v ? 'true' : 'false';
+        }
+        if (is_scalar($v)) {
+            return (string) $v;
+        }
+
+        return null;
     }
 }

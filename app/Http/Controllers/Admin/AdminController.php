@@ -122,48 +122,46 @@ class AdminController extends Controller
     if ($type == 'deposit'):
       switch ($actionType):
         case 'approve':
-          $transaction->status            =  1;
-          $transaction->save();
+          $message = DB::transaction(function () use ($id) {
+            $locked = Transaction::whereId($id)->lockForUpdate()->first();
+            if (! $locked) {
+              return 'Transaction not found';
+            }
+            if ((int) $locked->status === 1) {
+              return 'Transaction already approved';
+            }
 
-          $user                           = User::find($transaction->user_id);
+            $locked->status = 1;
+            $locked->save();
 
-          $total_game_wallet_amount      = $user->game_wallet_amount + $transaction->amount;
-          $user->game_wallet_amount      = $total_game_wallet_amount;
-         
-          $message              = 'Transaction approved successfully';
+            $user = User::withoutGlobalScopes()->whereKey($locked->user_id)->lockForUpdate()->first();
+            if (! $user) {
+              throw new \RuntimeException('User not found for deposit approval');
+            }
 
-          # Withdrawal Wallet and History
-        
-          # Wallet Update
+            $user->game_wallet_amount = $user->game_wallet_amount + $locked->amount;
+            $user->save();
 
-          // $wallet_record =  Wallet::whereTransactionId($transaction->id)->first();
-          Wallet::whereTransactionId($transaction->id)->update(['win_and_game_total_amount' => $user->total_wallet_amount, 'status' =>  1]);
-          // Wallet::whereUserId($transaction->user_id)->whereWalletType('game')->whereType('credit')->where('id', '>', $wallet_record->id)->increment('win_and_game_total_amount', $transaction->amount);
-         # End Wallet Update
-           $user->save();
-          # End Wallet Update
+            Wallet::whereTransactionId($locked->id)->update([
+              'win_and_game_total_amount' => $user->total_wallet_amount,
+              'status' => 1,
+            ]);
 
-          # ===========================================================================
-          #   Notification
-          # ===========================================================================
-          # Notification
-          $notification_title     = 'Deposit Fund Approved';
-          $notification_body      = 'Amount deposited successfully.';
-          $notification_type      =  'deposit';
+            $notification_title     = 'Deposit Fund Approved';
+            $notification_body      = 'Amount deposited successfully.';
+            $notification_type      =  'deposit';
 
-          safe_notify(
-            $user->fcm_device_token,
-            $notification_title,
-            $notification_body,
-            $notification_type,
-            $transaction->user->id,
-            ['transaction_id' => $transaction->id, 'context' => 'admin_deposit_approve']
-          );
-          # Notification
-          # ===========================================================================
-          #   End Notification
-          # ===========================================================================
-          # End Withdrawal Wallet and History
+            safe_notify(
+              $user->fcm_device_token,
+              $notification_title,
+              $notification_body,
+              $notification_type,
+              $user->id,
+              ['transaction_id' => $locked->id, 'context' => 'admin_deposit_approve']
+            );
+
+            return 'Transaction approved successfully';
+          });
           break;
 
         case 'reject':

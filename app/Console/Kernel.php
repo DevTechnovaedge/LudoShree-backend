@@ -71,6 +71,10 @@ class Kernel extends ConsoleKernel
         })->everyMinute();
         # End Push Notification
 
+        $schedule->command('upi:sync-pending-deposits')
+            ->everyMinute()
+            ->withoutOverlapping(4);
+
     }
 
     /**

@@ -2851,7 +2851,7 @@ class ApiController extends Controller
                         'user_id'       => $transaction->user_id,
                     ]);
                     (new \App\Http\Controllers\PaymentGateway\UpiGatewayController())
-                        ->syncStatus($transaction->txn_id);
+                        ->syncStatus($transaction->txn_id, 2);
                     $transaction->refresh();
                     Log::info('[UPI Gateway] mobile transaction_status ← after sync', [
                         'client_txn_id' => $transaction->txn_id,
@@ -3027,7 +3027,7 @@ class ApiController extends Controller
             if (request()->boolean('sync') && (int) $transaction->status === 0 && $pg === 'upigateway') {
                 try {
                     (new \App\Http\Controllers\PaymentGateway\UpiGatewayController())
-                        ->syncStatus($transaction->txn_id);
+                        ->syncStatus($transaction->txn_id, 2);
                     $transaction->refresh();
                     $gp->refresh();
                 } catch (\Throwable $e) {
