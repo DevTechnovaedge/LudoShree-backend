@@ -2,180 +2,124 @@
 
 namespace App\Console\Commands;
 
-use App\Models\GameChallenge\Wallet;
-use App\Models\User;
-use App\Services\WalletService;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 
 /**
- * Repairs balances that drifted away from the wallet ledger.
+ * Read-only audit of wallet balances against the ledger.
  *
- * Every ledger row stores the balance snapshot taken right after it was
- * written. If a user's newest row says the total was 250 but the users table
- * says 200, then 50 was credited in history and later overwritten - which is
- * the "refund shows in history but not in the wallet" report.
+ * This command deliberately cannot write. An earlier version credited every
+ * apparent shortfall automatically and that was wrong: two ledger columns are
+ * not trustworthy enough to pay out from.
  *
- * Only shortfalls are credited back; a surplus is reported and left alone so
- * the command can never take money away from a player.
+ *  - `wallet_type` does not always name the column the money landed in. Refer
+ *    commission maps `refer_to == 'game_amount'` to the *win* wallet, so a row
+ *    labelled "win" can correspond to a game-wallet credit.
+ *  - `win_and_game_total_amount` was inflated by WalletObserver for a period:
+ *    the observer predicted the post-change total by adding the amount, but
+ *    WalletService had already applied it, so the amount was counted twice.
+ *
+ * `total_balance` is the one dependable field, because WalletService reads it
+ * back from the database after the atomic update. So a user is only reported
+ * when that snapshot matches neither wallet nor the combined total - anything
+ * else is a labelling artefact, not missing money.
+ *
+ * Rows that were never applied to a balance (pending or rejected deposits) are
+ * skipped, since a balance of zero against them is the correct outcome.
  */
 class ReconcileWalletBalances extends Command
 {
     protected $signature = 'wallet:reconcile
-        {--apply : Write the correcting entries (default is a dry run)}
         {--user= : Limit to a single user id}
-        {--min=0.01 : Ignore differences smaller than this}
-        {--chunk=500 : Users loaded per batch}';
+        {--min=0.01 : Ignore differences smaller than this}';
 
-    protected $description = 'Compare wallet balances against the ledger snapshots and credit back any shortfall';
+    protected $description = 'Audit wallet balances against the ledger snapshots (read-only, never writes)';
 
-    public function handle(WalletService $wallet): int
+    public function handle(): int
     {
-        $apply = (bool) $this->option('apply');
         $min = max(0.01, (float) $this->option('min'));
 
-        $query = User::query()->withoutGlobalScopes()->select([
-            'id', 'uid', 'mobile', 'game_wallet_amount', 'win_wallet_amount', 'is_king_player',
-        ]);
-
+        $bindings = [];
+        $userFilter = '';
         if ($userId = $this->option('user')) {
-            $query->whereKey((int) $userId);
+            $userFilter = ' AND u.id = ?';
+            $bindings[] = (int) $userId;
         }
 
-        $checked = 0;
-        $shortfalls = [];
-        $surpluses = [];
+        // One row per user: their balances plus their newest ledger entry.
+        $rows = DB::select("
+            SELECT u.id, u.uid, u.mobile,
+                   u.game_wallet_amount AS game,
+                   u.win_wallet_amount  AS win,
+                   w.type, w.status, w.wallet_type, w.total_balance AS snap,
+                   w.remark, w.created_at
+            FROM users u
+            JOIN (SELECT user_id, MAX(id) AS mid FROM wallet GROUP BY user_id) m
+              ON m.user_id = u.id
+            JOIN wallet w ON w.id = m.mid
+            WHERE COALESCE(u.is_king_player, 0) = 0
+              AND w.total_balance IS NOT NULL
+              {$userFilter}
+            ORDER BY u.id
+        ", $bindings);
 
-        $query->orderBy('id')->chunk((int) $this->option('chunk'), function ($users) use (&$checked, &$shortfalls, &$surpluses, $min) {
-            foreach ($users as $user) {
-                if ((int) ($user->is_king_player ?? 0) === 1) {
-                    continue;
-                }
+        $suspect = [];
+        $negative = [];
 
-                $checked++;
+        foreach ($rows as $r) {
+            $game = round((float) $r->game, 2);
+            $win = round((float) $r->win, 2);
 
-                $expected = $this->expectedBalances((int) $user->id);
-                if (! $expected) {
-                    continue;
-                }
-
-                $current = [
-                    'game' => round((float) $user->game_wallet_amount, 2),
-                    'win' => round((float) $user->win_wallet_amount, 2),
-                ];
-
-                foreach (['game', 'win'] as $walletType) {
-                    $diff = round($expected[$walletType] - $current[$walletType], 2);
-
-                    if (abs($diff) < $min) {
-                        continue;
-                    }
-
-                    $entry = [
-                        'user_id' => (int) $user->id,
-                        'uid' => $user->uid,
-                        'mobile' => $user->mobile,
-                        'wallet' => $walletType,
-                        'current' => $current[$walletType],
-                        'expected' => $expected[$walletType],
-                        'diff' => $diff,
-                    ];
-
-                    $diff > 0 ? $shortfalls[] = $entry : $surpluses[] = $entry;
-                }
+            if ($game < 0 || $win < 0) {
+                $negative[] = [$r->id, $r->uid, $r->mobile, $game, $win];
             }
-        });
 
-        $this->renderTable('Shortfall (money owed to the player)', $shortfalls);
-        $this->renderTable('Surplus (reported only, never deducted)', $surpluses);
-
-        $owed = round(array_sum(array_column($shortfalls, 'diff')), 2);
-        $this->line("Users checked: {$checked}");
-        $this->line('Shortfall rows: '.count($shortfalls)." (total ₹{$owed})");
-        $this->line('Surplus rows: '.count($surpluses));
-
-        if (! $shortfalls) {
-            $this->info('Nothing to repair.');
-
-            return self::SUCCESS;
-        }
-
-        if (! $apply) {
-            $this->warn('Dry run. Re-run with --apply to credit the shortfalls.');
-
-            return self::SUCCESS;
-        }
-
-        $repaired = 0;
-        foreach ($shortfalls as $entry) {
-            $credited = $wallet->credit($entry['user_id'], $entry['wallet'], $entry['diff'], [
-                'remark' => 'Wallet correction - ledger sync',
-                'status' => 1,
-            ]);
-
-            if (! $credited) {
-                $this->error("Failed for user {$entry['user_id']} ({$entry['wallet']})");
-
+            // A credit that never settled (pending or rejected deposit) was never
+            // added to the balance, so its snapshot says nothing about a shortfall.
+            if ($r->type === 'credit' && (int) $r->status !== 1) {
                 continue;
             }
 
-            $repaired++;
-            Log::info('[Wallet] reconciled shortfall', $entry + ['balances' => $credited]);
+            $snap = round((float) $r->snap, 2);
+
+            foreach ([$game, $win, round($game + $win, 2)] as $candidate) {
+                if (abs($snap - $candidate) < $min) {
+                    continue 2;
+                }
+            }
+
+            $suspect[] = [
+                $r->id, $r->uid, $r->mobile, $game, $win, $snap,
+                substr((string) $r->remark, 0, 34), $r->created_at,
+            ];
         }
 
-        $this->info("Repaired {$repaired} of ".count($shortfalls).' entries.');
-
-        return self::SUCCESS;
-    }
-
-    /**
-     * Balances implied by the newest ledger row.
-     *
-     * That row carries the wallet it touched (total_balance) and the combined
-     * total, so the other wallet is the remainder. Rows written before snapshots
-     * existed are skipped rather than guessed at.
-     *
-     * @return array{game: float, win: float}|null
-     */
-    private function expectedBalances(int $userId): ?array
-    {
-        $latest = Wallet::query()
-            ->where('user_id', $userId)
-            ->orderByDesc('id')
-            ->first(['wallet_type', 'total_balance', 'win_and_game_total_amount']);
-
-        if (! $latest) {
-            return null;
+        if ($negative) {
+            $this->newLine();
+            $this->line('Negative balances (overdrafts predating atomic writes)');
+            $this->table(['User', 'UID', 'Mobile', 'Game', 'Win'], $negative);
         }
 
-        $total = round((float) $latest->win_and_game_total_amount, 2);
-        $touched = round((float) $latest->total_balance, 2);
-
-        if ($total <= 0 || $touched < 0 || $touched > $total) {
-            return null;
-        }
-
-        $other = round($total - $touched, 2);
-
-        return $latest->wallet_type === 'win'
-            ? ['win' => $touched, 'game' => $other]
-            : ['game' => $touched, 'win' => $other];
-    }
-
-    private function renderTable(string $title, array $rows): void
-    {
-        if (! $rows) {
-            return;
+        if ($suspect) {
+            $this->newLine();
+            $this->line('Snapshot matches neither wallet nor the combined total');
+            $this->table(
+                ['User', 'UID', 'Mobile', 'Game', 'Win', 'Snapshot', 'Remark', 'When'],
+                $suspect
+            );
         }
 
         $this->newLine();
-        $this->line($title);
-        $this->table(
-            ['User', 'UID', 'Mobile', 'Wallet', 'Current', 'Expected', 'Diff'],
-            array_map(fn ($r) => [
-                $r['user_id'], $r['uid'], $r['mobile'], $r['wallet'],
-                $r['current'], $r['expected'], $r['diff'],
-            ], $rows)
-        );
+        $this->line('Users audited: '.count($rows));
+        $this->line('Negative balances: '.count($negative));
+        $this->line('Unexplained snapshots: '.count($suspect));
+
+        if (! $suspect && ! $negative) {
+            $this->info('Ledger and balances agree.');
+        } else {
+            $this->warn('Review each row by hand. This command never credits automatically.');
+        }
+
+        return self::SUCCESS;
     }
 }
