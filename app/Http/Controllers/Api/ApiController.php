@@ -28,6 +28,7 @@ use App\Services\GameChallengeWaitingDismissService;
 use App\Services\King\KingChallengeGateway;
 use App\Services\LkGameApiService;
 use App\Services\RegistrationWelcomeBonusService;
+use App\Services\WalletService;
 use App\Http\Resources\UserResource;
 use App\Http\Resources\GameChallengeResource;
 use App\Http\Resources\NotificationResource;
@@ -1297,7 +1298,8 @@ class ApiController extends Controller
                     &$cancelAlreadyDone,
                     $isChallenger,
                     $isOpponent,
-                    $refundService
+                    $refundService,
+                    $user
                 ) {
                     $locked = GameChallenge::query()->lockForUpdate()->find($game_challenge->id);
                     if (! $locked) {
@@ -1371,9 +1373,20 @@ class ApiController extends Controller
                     if ($fullyClosed) {
                         $refundService->refundAllStakes($locked);
                     } else {
-                        Log::info('[challenge.cancel] waiting for other player before refund', [
+                        // Refund the cancelling player immediately; the opponent
+                        // is refunded when they cancel too (idempotent service).
+                        $cancelRemark = "Challenge Refund Ref: {$locked->uid}";
+                        $refundedNow = $refundService->refundUserStake(
+                            (int) $locked->id,
+                            (int) $user->id,
+                            $cancelRemark
+                        );
+
+                        Log::info('[challenge.cancel] partial refund for cancelling player', [
                             'game_challenge_id' => $locked->id,
                             'uid' => $locked->uid,
+                            'user_id' => $user->id,
+                            'refunded' => $refundedNow,
                             'challenger_status' => $locked->challenger_status,
                             'opponent_status' => $locked->opponent_status,
                             'roomcode' => $locked->roomcode,
@@ -1644,10 +1657,16 @@ class ApiController extends Controller
                                 'status'                        =>  1,
                             ]);
 
-                            #
-                            $user->win_wallet_amount           =    $user->win_wallet_amount + $refer_commission_amount;
-                            $user->save();
-                            #
+                            # Atomic: $user is the request-cached model and was
+                            # loaded before the winner payout, so assigning a
+                            # total here used to overwrite that payout.
+                            app(GameChallengeWinnerPayoutService::class)
+                                ->creditReferCommission(
+                                    (int) $user->id,
+                                    (int) $game_challenge->id,
+                                    (float) $refer_commission_amount,
+                                    "Refer commission Ref: $game_challenge->uid"
+                                );
                         endif;
                     # End Commission Histroy
 
@@ -1729,10 +1748,14 @@ class ApiController extends Controller
                                 'status'                        =>  1,
                             ]);
 
-                            #
-                            $user->win_wallet_amount           =    $user->win_wallet_amount + $refer_commission_amount;
-                            $user->save();
-                            #
+                            # Atomic: see the challenger branch above.
+                            app(GameChallengeWinnerPayoutService::class)
+                                ->creditReferCommission(
+                                    (int) $user->id,
+                                    (int) $game_challenge->id,
+                                    (float) $refer_commission_amount,
+                                    "Refer commission Ref: $game_challenge->uid"
+                                );
                         endif;
                     # End Commission Histroy
                     endif;
@@ -1899,32 +1922,16 @@ class ApiController extends Controller
                             endif;
                             
                             $refer_commission_amount            =   ($game_challenge->challenger_amount * $refer_commission) / 100;
-                            $refer_user->refer_wallet_amount    =   $refer_user->refer_wallet_amount + $refer_commission_amount;
-
-                            $refer_to = site_setting()->refer_to;
-                            $refer_user_total_balance = 0;
-                            if($refer_to == 'game_amount'):
-                                $refer_user->win_wallet_amount      =   $refer_user->win_wallet_amount + $refer_commission_amount;
-                                $refer_user_total_balance = $refer_user->win_wallet_amount;
-                            else:
-                                $refer_user->game_wallet_amount      =   $refer_user->game_wallet_amount + $refer_commission_amount;
-                                $refer_user_total_balance = $refer_user->game_wallet_amount;
-                            endif;
+                            # Balance and ledger row are written atomically below.
                          
 
-                            ###### Refer Wallet Update
-                            Wallet::create([
-                                'user_id'               =>  $refer_user->id,
-                                'game_challenge_id'     =>  $game_challenge->id,
-                                'type'                  =>  'credit',
-                                'wallet_type'           =>  'win',
-                                'remark'                =>  "Refer wallet fund",
-                                'amount'                =>  $refer_commission_amount,
-                                'total_balance'         =>  $refer_user_total_balance,
-                                'status'                =>  1
-                            ]);
-                            ###### End Refer Wallet Update
-                            $refer_user->save();
+                            app(GameChallengeWinnerPayoutService::class)
+                                ->creditReferCommission(
+                                    (int) $refer_user->id,
+                                    (int) $game_challenge->id,
+                                    (float) $refer_commission_amount,
+                                    'Refer wallet fund'
+                                );
                         endif;
                     endif;
                     # End Refer Commission
@@ -1980,32 +1987,17 @@ class ApiController extends Controller
                         
                         if ($refer_user->refer_income == 1):
                             $refer_commission_amount            =   ($game_challenge->challenger_amount * $refer_commission) / 100;
-                            $refer_user->refer_wallet_amount    =   $refer_user->refer_wallet_amount + $refer_commission_amount;
+                            # Balance and ledger row are written atomically below.
                             
 
-                            $refer_to = site_setting()->refer_to;
-                            $refer_user_total_balance = 0;
-                            if($refer_to == 'game_amount'):
-                                $refer_user->win_wallet_amount      =   $refer_user->win_wallet_amount + $refer_commission_amount;
-                                $refer_user_total_balance = $refer_user->win_wallet_amount;
-                            else:
-                                $refer_user->game_wallet_amount      =   $refer_user->game_wallet_amount + $refer_commission_amount;
-                                $refer_user_total_balance = $refer_user->game_wallet_amount;
-                            endif;
                            
-                            ###### Refer Wallet Update
-                            Wallet::create([
-                                'user_id'               =>  $refer_user->id,
-                                'game_challenge_id'     =>  $game_challenge->id,
-                                'type'                  =>  'credit',
-                                'wallet_type'           =>  'win',
-                                'remark'                =>  "Refer wallet fund",
-                                'amount'                =>  $refer_commission_amount,
-                                'total_balance'         =>  $refer_user_total_balance,
-                                'status'                =>  1
-                            ]);
-                            ###### End Refer Wallet Update
-                             $refer_user->save();
+                            app(GameChallengeWinnerPayoutService::class)
+                                ->creditReferCommission(
+                                    (int) $refer_user->id,
+                                    (int) $game_challenge->id,
+                                    (float) $refer_commission_amount,
+                                    'Refer wallet fund'
+                                );
 
                         endif;
                     endif;
@@ -2196,8 +2188,10 @@ class ApiController extends Controller
             if (in_array(request()->type, ['cancel', 'winner', 'loser'], true)) {
                 $game_challenge = app(GameChallengeAutoSettleService::class)
                     ->settleIfDecided($game_challenge);
-                $user->refresh();
             }
+
+            // Always return wallet balances read fresh from DB after stake changes.
+            $user = User::query()->find($user->id) ?? $user;
 
             $arr                    =   [
                 'status'    => true,
@@ -2332,7 +2326,7 @@ class ApiController extends Controller
             'support_video'             => site_setting()->youtube_help_video,
             'my_challenges'             => GameChallengeResource::collection($my_challenges),
             'data'                      => GameChallengeResource::collection($game_challenges),
-            'user'                      => new UserResource($this->user())
+            'user'                      => new UserResource(User::find($this->user()->id))
         ];
         return response()->json($arr);
     }
@@ -2556,21 +2550,24 @@ class ApiController extends Controller
 
         if ($transfer_type == 'withdrawal') :
 
-            # Wallet Update
-            Wallet::create([
-                'transaction_id'         =>  $transaction->id,
-                'user_id'               =>  $user->id,
-                'type'                  =>  'debit',
-                'wallet_type'           =>  'win',
-                'remark'                =>  "Withdrawal Fund",
-                'amount'                =>  $amount,
-                'total_balance'         =>  $total_balance,
-                'status'                =>  0
+            # Atomic debit. Assigning a total that was calculated earlier in the
+            # request would discard anything credited in the meantime.
+            $debited = app(WalletService::class)->debit((int) $user->id, 'win', (float) $amount, [
+                'transaction_id' => $transaction->id,
+                'remark' => 'Withdrawal Fund',
+                'status' => 0,
             ]);
-            # End Wallet Update
 
-            $user->win_wallet_amount   = $total_balance;
-            $user->save();
+            if (! $debited) :
+                $transaction->delete();
+
+                return response()->json([
+                    'status'    => false,
+                    'message'   => 'Insufficient balance in win wallet',
+                ]);
+            endif;
+
+            $user->refresh();
 
             $message = "Withdrawal amount will be reflected within 10-15 mins";
 
@@ -2589,21 +2586,12 @@ class ApiController extends Controller
 
 
         if ($transfer_type == 'deposit') :
-            $total_balance  =   $user->game_wallet_amount + $final_amount;
-            $user->game_wallet_amount   = $total_balance;
-            $user->save();
-
-            # Wallet Update
-            Wallet::create([
-                'user_id'               =>  $user->id,
-                'type'                  =>  'credit',
-                'wallet_type'           =>  'game',
-                'remark'                =>  "Deposit Fund",
-                'amount'                =>  $amount,
-                'total_balance'         =>  $total_balance,
-                'status'                =>  1
+            app(WalletService::class)->credit((int) $user->id, 'game', (float) $final_amount, [
+                'remark' => 'Deposit Fund',
+                'status' => 1,
             ]);
-            # End Wallet Update
+
+            $user->refresh();
 
             # ===========================================================================
             #   Notification
@@ -3162,7 +3150,7 @@ class ApiController extends Controller
                 'maximum_deposit_amount'        => site_setting()->maximum_deposit_amount,
                 'payment_gateway'               => site_setting()->payment_gateway,
                 'data'                          => $wallet_history_data,
-                'user'                          => new UserResource($this->user())
+                'user'                          => new UserResource(User::find($this->user()->id))
             ];
         else:
             $arr                    =   [
@@ -3174,7 +3162,7 @@ class ApiController extends Controller
                 'maximum_deposit_amount'    => site_setting()->maximum_deposit_amount,
                 'payment_gateway'               => site_setting()->payment_gateway,
                 'data'                      => $wallet_history_data,
-                'user'                      => new UserResource($this->user())
+                'user'                      => new UserResource(User::find($this->user()->id))
             ];
         endif;
 
@@ -3603,29 +3591,43 @@ class ApiController extends Controller
        $transferred_win_amount = $amount;
        $actual_game_amount = $user->game_wallet_amount;
        #
-       $user->game_wallet_amount +=  $amount;
-       $game_amount_without_cashback = $user->game_wallet_amount;
-       
-       $user->game_wallet_amount +=  $cashback_amount;
-       $game_amount_with_cashback = $user->game_wallet_amount;
+       # Each leg is an atomic statement with its own ledger row, so a refund or
+       # payout landing mid-transfer can no longer be overwritten.
+       $wallet_service = app(WalletService::class);
 
-        $user->win_wallet_amount -=  $amount;
+       $debited = $wallet_service->debit((int) $user->id, 'win', (float) $amount, [
+           'remark' => 'Transfer to game wallet',
+           'status' => 1,
+       ]);
 
-        //  Before Saving User
-        Wallet::create([
-            'user_id' => $user->id,
-            'game_challenge_id' => 0,
-            'type' => 'cashback',
-            'wallet_type' => 'game',
-            'remark' => "Transfer from win to game",
-            'amount' => $cashback_amount,
-            'total_balance' => $user->game_wallet_amount,
-            'win_and_game_total_amount' => $user->total_wallet_amount,
-            'status' => 1,
-        ]);
-        //
+       if(! $debited):
+            return response()->json([
+                                    'status' => false,
+                                    'message' => 'Insufficient balance'
+                                ]);
+       endif;
 
-        $result = $user->save();
+       $after_transfer = $wallet_service->credit((int) $user->id, 'game', (float) $amount, [
+           'remark' => 'Transfer from win wallet',
+           'status' => 1,
+       ]);
+
+       $game_amount_without_cashback = $after_transfer['game'] ?? $actual_game_amount;
+
+       $after_cashback = $cashback_amount > 0
+            ? $wallet_service->credit((int) $user->id, 'game', (float) $cashback_amount, [
+                'game_challenge_id' => 0,
+                'type' => 'cashback',
+                'remark' => 'Transfer from win to game',
+                'status' => 1,
+            ])
+            : $after_transfer;
+
+       $game_amount_with_cashback = $after_cashback['game'] ?? $game_amount_without_cashback;
+
+        $user->refresh();
+
+        $result = $after_transfer !== null;
 
         #============ Transfer Cashback ============#
         if($result):
@@ -3788,8 +3790,9 @@ class ApiController extends Controller
             $transaction->remark = $remark;
             $transaction->save();
 
-            $targetUser->win_wallet_amount = $targetUser->win_wallet_amount + $transaction->amount;
-            $targetUser->save();
+            app(WalletService::class)
+                ->incrementColumn((int) $targetUser->id, 'win_wallet_amount', (float) $transaction->amount);
+            $targetUser->refresh();
 
             Wallet::whereTransactionId($transaction->id)->update([
                 'type'                      => 'credit',

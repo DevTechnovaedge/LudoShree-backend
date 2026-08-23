@@ -15,11 +15,13 @@ use Illuminate\Support\Facades\DB;
  */
 class GameChallengeWinnerPayoutService
 {
+    public function __construct(
+        private readonly WalletService $wallet,
+    ) {}
+
     public function awardChallengerWin(GameChallenge $game_challenge): void
     {
         $game_challenge->loadMissing(['challenger', 'opponent']);
-
-        $win_amount = $game_challenge->paid_amount;
 
         $challenger = User::query()->withoutGlobalScopes()->find($game_challenge->challenger_id);
         if (!$challenger) {
@@ -40,19 +42,7 @@ class GameChallengeWinnerPayoutService
             return;
         }
 
-        Wallet::create([
-            'user_id' => $game_challenge->challenger_id,
-            'game_challenge_id' => $game_challenge->id,
-            'type' => 'credit',
-            'wallet_type' => 'game',
-            'remark' => "Winner Ref: $game_challenge->uid",
-            'amount' => $win_amount,
-            'total_balance' => $challenger->game_wallet_amount + $win_amount,
-            'status' => 1,
-        ]);
-
-        $challenger->win_wallet_amount = $challenger->win_wallet_amount + $win_amount;
-        $challenger->save();
+        $this->creditWinnerIfMissing($game_challenge, $challenger);
 
         $refer_user = null;
         $refer_commission_amount = 0;
@@ -70,30 +60,12 @@ class GameChallengeWinnerPayoutService
 
                 $refer_commission_amount = ($game_challenge->challenger_amount * $refer_commission) / 100;
 
-                $refer_user->refer_wallet_amount = $refer_user->refer_wallet_amount + $refer_commission_amount;
-
-                $refer_to = site_setting()->refer_to;
-                $refer_user_total_balance = 0;
-                if ($refer_to == 'game_amount') {
-                    $refer_user->win_wallet_amount = $refer_user->win_wallet_amount + $refer_commission_amount;
-                    $refer_user_total_balance = $refer_user->win_wallet_amount;
-                } else {
-                    $refer_user->game_wallet_amount = $refer_user->game_wallet_amount + $refer_commission_amount;
-                    $refer_user_total_balance = $refer_user->game_wallet_amount;
-                }
-
-                Wallet::create([
-                    'user_id' => $refer_user->id,
-                    'game_challenge_id' => $game_challenge->id,
-                    'type' => 'credit',
-                    'wallet_type' => 'win',
-                    'remark' => 'Refer wallet fund - Result update by admin',
-                    'amount' => $refer_commission_amount,
-                    'total_balance' => $refer_user_total_balance,
-                    'status' => 1,
-                ]);
-
-                $refer_user->save();
+                $this->creditReferCommission(
+                    (int) $refer_user->id,
+                    (int) $game_challenge->id,
+                    (float) $refer_commission_amount,
+                    'Refer wallet fund - Result update by admin'
+                );
             }
         }
 
@@ -111,22 +83,11 @@ class GameChallengeWinnerPayoutService
                 'status' => 1,
             ]);
         }
-
-        safe_notify(
-            optional($game_challenge->challenger)->fcm_device_token,
-            'Winner',
-            "Congratulation, you win. Ref: $game_challenge->uid",
-            'winner',
-            $game_challenge->challenger_id,
-            ['game_challenge_id' => $game_challenge->id]
-        );
     }
 
     public function awardOpponentWin(GameChallenge $game_challenge): void
     {
         $game_challenge->loadMissing(['challenger', 'opponent']);
-
-        $win_amount = $game_challenge->paid_amount;
 
         $opponent = User::query()->withoutGlobalScopes()->find($game_challenge->opponent_id);
         if (!$opponent) {
@@ -143,19 +104,7 @@ class GameChallengeWinnerPayoutService
             return;
         }
 
-        Wallet::create([
-            'user_id' => $game_challenge->opponent_id,
-            'game_challenge_id' => $game_challenge->id,
-            'type' => 'credit',
-            'wallet_type' => 'game',
-            'remark' => "Winner Ref: $game_challenge->uid",
-            'amount' => $win_amount,
-            'total_balance' => $opponent->game_wallet_amount + $win_amount,
-            'status' => 1,
-        ]);
-
-        $opponent->win_wallet_amount = $opponent->win_wallet_amount + $win_amount;
-        $opponent->save();
+        $this->creditWinnerIfMissing($game_challenge, $opponent);
 
         $refer_user = null;
         $refer_commission_amount = 0;
@@ -172,30 +121,12 @@ class GameChallengeWinnerPayoutService
 
                 $refer_commission_amount = ($game_challenge->challenger_amount * $refer_commission) / 100;
 
-                $refer_user->refer_wallet_amount = $refer_user->refer_wallet_amount + $refer_commission_amount;
-
-                $refer_to = site_setting()->refer_to;
-                $refer_user_total_balance = 0;
-                if ($refer_to == 'game_amount') {
-                    $refer_user->win_wallet_amount = $refer_user->win_wallet_amount + $refer_commission_amount;
-                    $refer_user_total_balance = $refer_user->win_wallet_amount;
-                } else {
-                    $refer_user->game_wallet_amount = $refer_user->game_wallet_amount + $refer_commission_amount;
-                    $refer_user_total_balance = $refer_user->game_wallet_amount;
-                }
-
-                Wallet::create([
-                    'user_id' => $refer_user->id,
-                    'game_challenge_id' => $game_challenge->id,
-                    'type' => 'credit',
-                    'wallet_type' => 'win',
-                    'remark' => 'Refer wallet fund - Result update by admin',
-                    'amount' => $refer_commission_amount,
-                    'total_balance' => $refer_user_total_balance,
-                    'status' => 1,
-                ]);
-
-                $refer_user->save();
+                $this->creditReferCommission(
+                    (int) $refer_user->id,
+                    (int) $game_challenge->id,
+                    (float) $refer_commission_amount,
+                    'Refer wallet fund - Result update by admin'
+                );
             }
         }
 
@@ -213,15 +144,6 @@ class GameChallengeWinnerPayoutService
                 'status' => 1,
             ]);
         }
-
-        safe_notify(
-            optional($game_challenge->opponent)->fcm_device_token,
-            'Winner',
-            "Congratulation, you win. Ref: $game_challenge->uid",
-            'winner',
-            $game_challenge->opponent_id,
-            ['game_challenge_id' => $game_challenge->id]
-        );
     }
 
     /**
@@ -254,21 +176,16 @@ class GameChallengeWinnerPayoutService
             }
 
             $winAmount = (float) $challenge->paid_amount;
-            $total = (float) $locked->win_wallet_amount + $winAmount;
 
-            Wallet::create([
-                'user_id' => $locked->id,
+            $credited = $this->wallet->credit((int) $locked->id, 'win', $winAmount, [
                 'game_challenge_id' => $challenge->id,
-                'type' => 'credit',
-                'wallet_type' => 'win',
                 'remark' => "Winner amount Ref: $challenge->uid",
-                'amount' => $winAmount,
-                'total_balance' => $total,
                 'status' => 1,
             ]);
 
-            $locked->win_wallet_amount = $total;
-            $locked->save();
+            if (! $credited) {
+                return false;
+            }
 
             safe_notify(
                 $locked->fcm_device_token,
@@ -281,5 +198,30 @@ class GameChallengeWinnerPayoutService
 
             return true;
         });
+    }
+
+    /**
+     * Refer commission payout.
+     *
+     * `refer_to == 'game_amount'` crediting the win wallet is pre-existing
+     * behaviour and is kept as-is; only the write is made atomic and the ledger
+     * row now names the wallet that actually received the money.
+     */
+    public function creditReferCommission(int $referUserId, int $gameChallengeId, float $amount, string $remark): void
+    {
+        $amount = round($amount, 2);
+        if ($referUserId <= 0 || $amount <= 0) {
+            return;
+        }
+
+        $walletType = site_setting()->refer_to == 'game_amount' ? 'win' : 'game';
+
+        $this->wallet->incrementColumn($referUserId, 'refer_wallet_amount', $amount);
+
+        $this->wallet->credit($referUserId, $walletType, $amount, [
+            'game_challenge_id' => $gameChallengeId,
+            'remark' => $remark,
+            'status' => 1,
+        ]);
     }
 }

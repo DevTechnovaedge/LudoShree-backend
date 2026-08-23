@@ -91,8 +91,10 @@ class AdminController extends Controller
 
           # Refund Withdrawal Amount
             $user             = User::find($transaction->user_id);
-            $user->win_wallet_amount  = $user->win_wallet_amount + $transaction->amount;
-           
+            app(\App\Services\WalletService::class)
+              ->incrementColumn((int) $user->id, 'win_wallet_amount', (float) $transaction->amount);
+            $user->refresh();
+
             Wallet::whereTransactionId($transaction->id)->update(['type' => 'credit', 'remark' => 'Rejected your withdrawal', 'win_and_game_total_amount' => $user->total_wallet_amount, 'status' =>  2]);
 
             //  # Wallet Update
@@ -106,7 +108,6 @@ class AdminController extends Controller
               //   'total_balance'         =>  $user->total_wallet_amount + $transaction->amount,
               //   'status'                =>  0
               // ]);
-              $user->save();
             # End Wallet Update
           # End Refund Withdrawal Amount
 
@@ -140,8 +141,9 @@ class AdminController extends Controller
               throw new \RuntimeException('User not found for deposit approval');
             }
 
-            $user->game_wallet_amount = $user->game_wallet_amount + $locked->amount;
-            $user->save();
+            app(\App\Services\WalletService::class)
+              ->incrementColumn((int) $user->id, 'game_wallet_amount', (float) $locked->amount);
+            $user->refresh();
 
             Wallet::whereTransactionId($locked->id)->update([
               'win_and_game_total_amount' => $user->total_wallet_amount,

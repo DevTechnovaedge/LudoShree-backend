@@ -14,6 +14,10 @@ use Illuminate\Support\Facades\Log;
  */
 class GameChallengeStakeRefundService
 {
+    public function __construct(
+        private readonly WalletService $wallet,
+    ) {}
+
     /**
      * Refund stake debits for this user on this challenge that are not yet returned.
      *
@@ -28,7 +32,9 @@ class GameChallengeStakeRefundService
 
     private function refundUserStakeWithinTransaction(int $gameChallengeId, int $userId, string $creditRemark): float
     {
-        $user = User::query()->lockForUpdate()->find($userId);
+        // No global scopes: an unverified mobile must still get back money that
+        // was already debited from it.
+        $user = User::query()->withoutGlobalScopes()->lockForUpdate()->find($userId);
         if (! $user) {
             return 0.0;
         }
@@ -48,23 +54,23 @@ class GameChallengeStakeRefundService
         $debitedByWallet = $this->debitedByWallet($gameChallengeId, $userId);
         $returnedByWallet = $this->stakeReturnCreditsByWallet($gameChallengeId, $userId);
 
-        $totalRefunded = $this->applyRefundCredits($user, $gameChallengeId, $userId, $creditRemark, $debitedByWallet, $returnedByWallet);
+        $totalRefunded = $this->applyRefundCredits($gameChallengeId, $userId, $creditRemark, $debitedByWallet, $returnedByWallet);
 
         if ($totalRefunded <= 0 && $debitedByWallet->isEmpty()) {
-            $totalRefunded = $this->refundFallbackFromChallengeAmount($user, $gameChallenge, $userId, $creditRemark, $returnedByWallet);
+            $totalRefunded = $this->refundFallbackFromChallengeAmount($gameChallenge, $userId, $creditRemark, $returnedByWallet);
         }
 
-        $user->saveQuietly();
-
         if ($totalRefunded > 0) {
+            $balances = $this->wallet->balances($userId) ?? ['game' => 0.0, 'win' => 0.0];
+
             $logPayload = [
                 'game_challenge_id' => $gameChallengeId,
                 'user_id' => $userId,
                 'uid' => $gameChallenge->uid,
                 'amount' => $totalRefunded,
                 'remark' => $creditRemark,
-                'game_wallet' => (float) $user->game_wallet_amount,
-                'win_wallet' => (float) $user->win_wallet_amount,
+                'game_wallet' => $balances['game'],
+                'win_wallet' => $balances['win'],
             ];
 
             DB::afterCommit(function () use ($logPayload) {
@@ -165,7 +171,6 @@ class GameChallengeStakeRefundService
     }
 
     private function applyRefundCredits(
-        User $user,
         int $gameChallengeId,
         int $userId,
         string $creditRemark,
@@ -182,7 +187,7 @@ class GameChallengeStakeRefundService
                 continue;
             }
 
-            $totalRefunded += $this->creditWallet($user, $userId, $gameChallengeId, (string) $walletType, $toRefund, $creditRemark);
+            $totalRefunded += $this->creditWallet($userId, $gameChallengeId, (string) $walletType, $toRefund, $creditRemark);
         }
 
         return $totalRefunded;
@@ -192,7 +197,6 @@ class GameChallengeStakeRefundService
      * If create ran but wallet debits were never written, return challenger_amount once.
      */
     private function refundFallbackFromChallengeAmount(
-        User $user,
         GameChallenge $gameChallenge,
         int $userId,
         string $creditRemark,
@@ -224,42 +228,22 @@ class GameChallengeStakeRefundService
             'amount' => $toRefund,
         ]);
 
-        return $this->creditWallet($user, $userId, (int) $gameChallenge->id, 'game', $toRefund, $creditRemark);
+        return $this->creditWallet($userId, (int) $gameChallenge->id, 'game', $toRefund, $creditRemark);
     }
 
     private function creditWallet(
-        User $user,
         int $userId,
         int $gameChallengeId,
         string $walletType,
         float $toRefund,
         string $creditRemark
     ): float {
-        if ($walletType === 'win') {
-            $user->win_wallet_amount = round((float) $user->win_wallet_amount + $toRefund, 2);
-            $balance = $user->win_wallet_amount;
-        } else {
-            $user->game_wallet_amount = round((float) $user->game_wallet_amount + $toRefund, 2);
-            $balance = $user->game_wallet_amount;
-        }
+        $balances = $this->wallet->credit($userId, $walletType, $toRefund, [
+            'game_challenge_id' => $gameChallengeId,
+            'remark' => $creditRemark,
+            'status' => 1,
+        ], quiet: true);
 
-        Wallet::withoutEvents(function () use ($userId, $gameChallengeId, $walletType, $toRefund, $creditRemark, $user, &$balance) {
-            Wallet::create([
-                'user_id' => $userId,
-                'game_challenge_id' => $gameChallengeId,
-                'type' => 'credit',
-                'wallet_type' => $walletType,
-                'remark' => $creditRemark,
-                'amount' => $toRefund,
-                'total_balance' => $balance,
-                'status' => 1,
-                'win_and_game_total_amount' => round(
-                    (float) $user->game_wallet_amount + (float) $user->win_wallet_amount,
-                    2
-                ),
-            ]);
-        });
-
-        return $toRefund;
+        return $balances ? $toRefund : 0.0;
     }
 }

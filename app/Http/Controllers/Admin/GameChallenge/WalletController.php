@@ -277,59 +277,24 @@ class WalletController extends Controller
             return response()->json(['status' => false, 'message' => 'User not found']);
         endif;
 
-        # Total Balance
-        $total_balance              =   0;
-        if($wallet_type == 'game'):
-            $total_balance              =   $user->game_wallet_amount;
-        endif;
-        
-        if($wallet_type == 'win'):
-            $total_balance              =   $user->win_wallet_amount;
-        endif;
-        # End Total Balance
+        # Balance and ledger row are written together, and the balance is moved
+        # with a single statement so a concurrent game refund or payout is kept.
+        $wallet_service             =   app(\App\Services\WalletService::class);
 
-        $wallet                     =   Wallet::create([
-            'user_id'           => $user_id,
-            'amount'            => $amount,
-            'total_balance'     => $total_balance,
+        $ledger                     =   [
             'type'              => $type,
-            'wallet_type'       => $wallet_type,
             'remark'            => $remark,
             'status'            => 1,
             'added_by'          => auth('admin')->user()->id,
-        ]);
+        ];
 
-        
-        if ($wallet):
+        # requireFunds is off so an admin correction can still be recorded when
+        # the balance is already short.
+        $balances                   =   $type == 'debit'
+            ? $wallet_service->debit((int) $user_id, $wallet_type, (float) $amount, $ledger, false, false)
+            : $wallet_service->credit((int) $user_id, $wallet_type, (float) $amount, $ledger);
 
-            if ($type == 'credit'):
-                # Game
-                if ($wallet_type == 'game'):
-                    $user->game_wallet_amount += $amount;
-                endif;
-                
-                # Win
-                if ($wallet_type == 'win'):
-                    $user->win_wallet_amount += $amount;
-                endif;
-    
-            elseif ($type == 'debit'):
-                 # Game
-                 if ($wallet_type == 'game'):
-                    $user->game_wallet_amount -= $amount;
-                endif;
-                
-                # Win
-                if ($wallet_type == 'win'):
-                    $user->win_wallet_amount -= $amount;
-                endif;
-            endif;
-            # 
-            
-            # Save User
-            $user->save();
-            # End Save User
-            
+        if ($balances):
             $arr                =   ['status' => true, 'message' => 'Successfully transaction added'];
         else:
             $arr                =   ['status' => false, 'message' => 'User not found'];

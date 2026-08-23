@@ -108,8 +108,9 @@ class RozarPayController extends Controller
             if ($status === 'captured' || $status === 'authorized') {
                 $walletStatus = 1;
                 $transaction->status = 1;
-                $user->game_wallet_amount = $user->game_wallet_amount + $transaction->amount;
-                $user->save();
+                app(\App\Services\WalletService::class)
+                    ->incrementColumn((int) $user->id, 'game_wallet_amount', (float) $transaction->amount);
+                $user->refresh();
 
                 # ===========================================================================
                 #   Notification
@@ -178,8 +179,9 @@ class RozarPayController extends Controller
         if ($status === 'captured') {
             $walletStatus = 1;
             $transaction->status = 1;
-            $user->game_wallet_amount = $user->game_wallet_amount + $transaction->amount;
-            $user->save();
+            app(\App\Services\WalletService::class)
+                ->incrementColumn((int) $user->id, 'game_wallet_amount', (float) $transaction->amount);
+            $user->refresh();
 
             # ===========================================================================
             #   Notification

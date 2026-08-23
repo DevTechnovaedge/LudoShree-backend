@@ -138,8 +138,9 @@ class CashFreeController extends Controller
             switch($transactionStatus):
                 case 'PAID':
                     $status = 1;
-                    $user->game_wallet_amount = $user->game_wallet_amount + $transaction->amount;
-                    $user->save();
+                    app(\App\Services\WalletService::class)
+                        ->incrementColumn((int) $user->id, 'game_wallet_amount', (float) $transaction->amount);
+                    $user->refresh();
 
                     # ===========================================================================
         #   Notification
@@ -222,8 +223,9 @@ class CashFreeController extends Controller
         if ($status === 'SUCCESS') {
             $walletStatus = 1;
             $transaction->status = 1;
-            $user->game_wallet_amount = $user->game_wallet_amount + $transaction->amount;
-            $user->save();
+            app(\App\Services\WalletService::class)
+                ->incrementColumn((int) $user->id, 'game_wallet_amount', (float) $transaction->amount);
+            $user->refresh();
 
                 # ===========================================================================
         #   Notification

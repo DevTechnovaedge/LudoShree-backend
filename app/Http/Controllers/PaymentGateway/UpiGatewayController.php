@@ -665,8 +665,12 @@ class UpiGatewayController extends Controller
                     ]);
                     throw new \RuntimeException('User not found for UPI deposit credit');
                 }
-                $user->game_wallet_amount = $user->game_wallet_amount + $t->amount;
-                $user->save();
+                // Atomic: the pending ledger row below is only flipped to
+                // applied, so the balance must be bumped in one statement
+                // instead of writing back a total read a moment ago.
+                app(\App\Services\WalletService::class)
+                    ->incrementColumn((int) $user->id, 'game_wallet_amount', (float) $t->amount);
+                $user->refresh();
 
                 $this->notifyDeposit($user, $t->amount);
             } elseif ($isFailure) {
