@@ -35,6 +35,8 @@ Route::middleware('auth:api')->group(function () {
         Route::get('game-table', [ApiController::class, 'game_table'])->withoutMiddleware(['throttle:api']);
         Route::post('challenge', [ApiController::class, 'challenge'])->withoutMiddleware(['throttle:api']);
         Route::get('wallet-history', [ApiController::class, 'wallet_history']);
+        // No throttle — the app resyncs the balance after every money event.
+        Route::get('wallet-balance', [ApiController::class, 'wallet_balance'])->withoutMiddleware(['throttle:api']);
         Route::get('notifications', [ApiController::class, 'notifications']);
         Route::get('my-challenges', [ApiController::class, 'my_challenges']);
         Route::get('referrals', [ApiController::class, 'referrals']);

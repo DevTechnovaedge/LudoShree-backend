@@ -256,6 +256,34 @@ class ApiController extends Controller
         return auth('api')->user();
     }
 
+    /**
+     * The signed-in user re-read from the database.
+     *
+     * auth('api')->user() is resolved once per request, so it still holds the
+     * balance from before anything this request credited or debited. Global
+     * scopes are dropped because find() would otherwise return null for an
+     * unverified mobile and blank out the wallet in the response.
+     */
+    private function freshUser()
+    {
+        $current = $this->user();
+
+        return User::query()->withoutGlobalScopes()->find($current->id) ?? $current;
+    }
+
+    /**
+     * Cheap balance read so the app can resync the wallet after any event that
+     * moves money, without pulling the whole game table or wallet history.
+     */
+    public function wallet_balance()
+    {
+        return response()->json([
+            'status' => true,
+            'message' => 'Balance fetched successfully',
+            'user' => new UserResource($this->freshUser()),
+        ]);
+    }
+
     public function home()
     {
         $arr                       =   array();
@@ -2191,7 +2219,7 @@ class ApiController extends Controller
             }
 
             // Always return wallet balances read fresh from DB after stake changes.
-            $user = User::query()->find($user->id) ?? $user;
+            $user = $this->freshUser();
 
             $arr                    =   [
                 'status'    => true,
@@ -2326,7 +2354,7 @@ class ApiController extends Controller
             'support_video'             => site_setting()->youtube_help_video,
             'my_challenges'             => GameChallengeResource::collection($my_challenges),
             'data'                      => GameChallengeResource::collection($game_challenges),
-            'user'                      => new UserResource(User::find($this->user()->id))
+            'user'                      => new UserResource($this->freshUser())
         ];
         return response()->json($arr);
     }
@@ -3150,7 +3178,7 @@ class ApiController extends Controller
                 'maximum_deposit_amount'        => site_setting()->maximum_deposit_amount,
                 'payment_gateway'               => site_setting()->payment_gateway,
                 'data'                          => $wallet_history_data,
-                'user'                          => new UserResource(User::find($this->user()->id))
+                'user'                          => new UserResource($this->freshUser())
             ];
         else:
             $arr                    =   [
@@ -3162,7 +3190,7 @@ class ApiController extends Controller
                 'maximum_deposit_amount'    => site_setting()->maximum_deposit_amount,
                 'payment_gateway'               => site_setting()->payment_gateway,
                 'data'                      => $wallet_history_data,
-                'user'                      => new UserResource(User::find($this->user()->id))
+                'user'                      => new UserResource($this->freshUser())
             ];
         endif;
 
