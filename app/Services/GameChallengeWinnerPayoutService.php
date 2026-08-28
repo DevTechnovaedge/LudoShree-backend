@@ -17,6 +17,7 @@ class GameChallengeWinnerPayoutService
 {
     public function __construct(
         private readonly WalletService $wallet,
+        private readonly GameChallengeStakeRefundService $refunds,
     ) {}
 
     public function awardChallengerWin(GameChallenge $game_challenge): void
@@ -172,6 +173,8 @@ class GameChallengeWinnerPayoutService
                 ->exists();
 
             if ($alreadyPaid) {
+                $this->refunds->reverseCancelRefundsBecauseWinnerPaid($challenge);
+
                 return false;
             }
 
@@ -186,6 +189,8 @@ class GameChallengeWinnerPayoutService
             if (! $credited) {
                 return false;
             }
+
+            $this->refunds->reverseCancelRefundsBecauseWinnerPaid($challenge);
 
             safe_notify(
                 $locked->fcm_device_token,

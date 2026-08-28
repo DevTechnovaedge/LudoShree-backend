@@ -235,6 +235,67 @@ class GameChallengeStakeRefundService
         return $this->creditWallet($userId, (int) $gameChallenge->id, 'game', $toRefund, $creditRemark);
     }
 
+    /**
+     * If a started match later gets a winner, any cancel-time stake refund
+     * on this challenge is extra money and must be taken back.
+     */
+    public function reverseCancelRefundsBecauseWinnerPaid(GameChallenge $gameChallenge): float
+    {
+        $credits = Wallet::query()
+            ->where('game_challenge_id', $gameChallenge->id)
+            ->where('type', 'credit')
+            ->where('status', 1)
+            ->where('remark', 'like', 'Challenge Refund Ref:%')
+            ->get();
+
+        $reversed = 0.0;
+
+        foreach ($credits as $credit) {
+            $user = User::query()->withoutGlobalScopes()->find($credit->user_id);
+            if (! $user || (int) ($user->is_king_player ?? 0) === 1) {
+                continue;
+            }
+
+            $amount = round((float) $credit->amount, 2);
+            if ($amount <= 0) {
+                continue;
+            }
+
+            $already = Wallet::query()
+                ->where('game_challenge_id', $gameChallenge->id)
+                ->where('user_id', $credit->user_id)
+                ->where('type', 'debit')
+                ->where('remark', 'like', 'Refund reversed%')
+                ->where('wallet_type', $credit->wallet_type)
+                ->whereRaw('ABS(amount - ?) < 0.011', [$amount])
+                ->exists();
+
+            if ($already) {
+                continue;
+            }
+
+            $walletType = $credit->wallet_type === 'win' ? 'win' : 'game';
+            $ok = $this->wallet->debit((int) $credit->user_id, $walletType, $amount, [
+                'game_challenge_id' => (int) $gameChallenge->id,
+                'remark' => "Refund reversed - winner already paid Ref: {$gameChallenge->uid}",
+                'status' => 1,
+            ], quiet: true, requireFunds: false);
+
+            if ($ok) {
+                $reversed += $amount;
+                Log::info('[GameChallengeRefund] reversed cancel refund after winner payout', [
+                    'game_challenge_id' => $gameChallenge->id,
+                    'uid' => $gameChallenge->uid,
+                    'user_id' => $credit->user_id,
+                    'amount' => $amount,
+                    'wallet_type' => $walletType,
+                ]);
+            }
+        }
+
+        return $reversed;
+    }
+
     private function creditWallet(
         int $userId,
         int $gameChallengeId,
