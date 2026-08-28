@@ -391,6 +391,11 @@ class GameChallengeController extends Controller
         
         lock_game_challenge($game_challenge);
 
+        if (in_array($action, ['challenger_win', 'opponent_win'], true)) {
+            app(\App\Services\GameChallengeStakeRefundService::class)
+                ->reverseCancelRefundsBecauseWinnerPaid($game_challenge);
+        }
+
         switch ($action):
             case 'challenger_win';
 
@@ -480,30 +485,28 @@ class GameChallengeController extends Controller
 
         $wallet = app(\App\Services\WalletService::class);
         $remaining_penalty_amount = $penalty_amount_charge;
+        $balances = $wallet->balances((int) $user->id) ?? ['game' => 0.0, 'win' => 0.0];
 
-        foreach (['game', 'win'] as $column) {
-            if ($remaining_penalty_amount <= 0) {
-                break;
-            }
-
-            $balances = $wallet->balances((int) $user->id);
-            if (! $balances) {
-                break;
-            }
-
-            $take = round(min($balances[$column], $remaining_penalty_amount), 2);
-            if ($take <= 0) {
-                continue;
-            }
-
-            $debited = $wallet->debit((int) $user->id, $column, $take, [
+        $fromGame = round(min(max(0, $balances['game']), $remaining_penalty_amount), 2);
+        if ($fromGame > 0) {
+            $ok = $wallet->debit((int) $user->id, 'game', $fromGame, [
                 'game_challenge_id' => $game_challenge->id,
-                'remark' => "Penalty Deducted from {$column} Wallet Ref: {$game_challenge->uid}",
+                'remark' => "Penalty Deducted from game Wallet Ref: {$game_challenge->uid}",
                 'status' => 1,
-            ]);
+            ], false, false);
+            if ($ok) {
+                $remaining_penalty_amount = round($remaining_penalty_amount - $fromGame, 2);
+            }
+        }
 
-            if ($debited) {
-                $remaining_penalty_amount = round($remaining_penalty_amount - $take, 2);
+        if ($remaining_penalty_amount > 0) {
+            $ok = $wallet->debit((int) $user->id, 'win', $remaining_penalty_amount, [
+                'game_challenge_id' => $game_challenge->id,
+                'remark' => "Penalty Deducted from win Wallet Ref: {$game_challenge->uid}",
+                'status' => 1,
+            ], false, false);
+            if ($ok) {
+                $remaining_penalty_amount = 0.0;
             }
         }
 

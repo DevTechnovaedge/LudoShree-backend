@@ -157,11 +157,11 @@ class GameChallengeStakeRefundService
     }
 
     /**
-     * Only count refund / auto-close credits — not winner payouts on the same challenge.
+     * Only count refund / auto-close credits that were not later taken back.
      */
     private function stakeReturnCreditsByWallet(int $gameChallengeId, int $userId): Collection
     {
-        return Wallet::query()
+        $credits = Wallet::query()
             ->where('game_challenge_id', $gameChallengeId)
             ->where('user_id', $userId)
             ->where('type', 'credit')
@@ -172,6 +172,22 @@ class GameChallengeStakeRefundService
             ->get()
             ->groupBy('wallet_type')
             ->map(fn ($rows) => round((float) $rows->sum('amount'), 2));
+
+        $takenBack = Wallet::query()
+            ->where('game_challenge_id', $gameChallengeId)
+            ->where('user_id', $userId)
+            ->where('type', 'debit')
+            ->where(function ($q) {
+                $q->where('remark', 'like', 'Refund reversed%')
+                    ->orWhere('remark', 'like', 'Cancel refund held%');
+            })
+            ->get()
+            ->groupBy('wallet_type')
+            ->map(fn ($rows) => round((float) $rows->sum('amount'), 2));
+
+        return $credits->map(function ($amount, $walletType) use ($takenBack) {
+            return round(max(0, $amount - (float) ($takenBack[$walletType] ?? 0)), 2);
+        });
     }
 
     private function applyRefundCredits(
@@ -241,6 +257,27 @@ class GameChallengeStakeRefundService
      */
     public function reverseCancelRefundsBecauseWinnerPaid(GameChallenge $gameChallenge): float
     {
+        return $this->reverseCancelRefundCredits(
+            $gameChallenge,
+            "Refund reversed - winner already paid Ref: {$gameChallenge->uid}"
+        );
+    }
+
+    /**
+     * Take back a live-game cancel refund before admin settles, so the
+     * canceller does not keep the stake while the game is in dispute.
+     * Admin cancel can still refund afterwards (net of this hold).
+     */
+    public function holdCancelRefundsPendingAdmin(GameChallenge $gameChallenge): float
+    {
+        return $this->reverseCancelRefundCredits(
+            $gameChallenge,
+            "Cancel refund held pending admin Ref: {$gameChallenge->uid}"
+        );
+    }
+
+    private function reverseCancelRefundCredits(GameChallenge $gameChallenge, string $remark): float
+    {
         $credits = Wallet::query()
             ->where('game_challenge_id', $gameChallenge->id)
             ->where('type', 'credit')
@@ -265,7 +302,10 @@ class GameChallengeStakeRefundService
                 ->where('game_challenge_id', $gameChallenge->id)
                 ->where('user_id', $credit->user_id)
                 ->where('type', 'debit')
-                ->where('remark', 'like', 'Refund reversed%')
+                ->where(function ($q) {
+                    $q->where('remark', 'like', 'Refund reversed%')
+                        ->orWhere('remark', 'like', 'Cancel refund held%');
+                })
                 ->where('wallet_type', $credit->wallet_type)
                 ->whereRaw('ABS(amount - ?) < 0.011', [$amount])
                 ->exists();
@@ -277,18 +317,19 @@ class GameChallengeStakeRefundService
             $walletType = $credit->wallet_type === 'win' ? 'win' : 'game';
             $ok = $this->wallet->debit((int) $credit->user_id, $walletType, $amount, [
                 'game_challenge_id' => (int) $gameChallenge->id,
-                'remark' => "Refund reversed - winner already paid Ref: {$gameChallenge->uid}",
+                'remark' => $remark,
                 'status' => 1,
             ], quiet: true, requireFunds: false);
 
             if ($ok) {
                 $reversed += $amount;
-                Log::info('[GameChallengeRefund] reversed cancel refund after winner payout', [
+                Log::info('[GameChallengeRefund] reversed cancel refund', [
                     'game_challenge_id' => $gameChallenge->id,
                     'uid' => $gameChallenge->uid,
                     'user_id' => $credit->user_id,
                     'amount' => $amount,
                     'wallet_type' => $walletType,
+                    'remark' => $remark,
                 ]);
             }
         }
