@@ -176,12 +176,18 @@ class CommissionController extends Controller
     # fetch_user_details
     public function fetch_user_details(){
         $arr            =   [];
-        $uid            =   request()->user_uid;
+        $uid            =   trim((string) request()->user_uid);
 
-        $user           =   User::select('id', 'uid', 'name', 'game_wallet_amount', 'win_wallet_amount', 'commission')->whereUid($uid)->orWhere('mobile', $uid)->first();
+        User::$skipAppends = true;
+
+        $user = User::withoutGlobalScopes()
+            ->select('id', 'uid', 'name', 'game_wallet_amount', 'win_wallet_amount', 'commission')
+            ->where(function ($query) use ($uid) {
+                $query->where('uid', $uid)->orWhere('mobile', $uid);
+            })
+            ->first();
 
         if($user):
-            $user->makeHidden(['game_win_count', 'game_lose_count', 'user_details']);
             $arr        =   ['status' => true, 'message' => 'Successfully data fetched', 'user' => $user ];
         else:
             $arr        =   ['status' => false, 'message' => 'Data not found'];

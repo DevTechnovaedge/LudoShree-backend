@@ -348,11 +348,15 @@ class GameChallenge extends Model
 
     # Game Type
     public  function challenger(){
-        return $this->belongsTo(User::class, 'challenger_id', 'id')->select('id', 'uid', 'name', 'profile', 'fcm_device_token', 'refer_by', 'refer_income', 'game_wallet_amount', 'win_wallet_amount');
+        return $this->belongsTo(User::class, 'challenger_id', 'id')
+            ->withoutGlobalScopes()
+            ->select('id', 'uid', 'name', 'profile', 'fcm_device_token', 'refer_by', 'refer_income', 'game_wallet_amount', 'win_wallet_amount');
     }
 
     public  function opponent(){
-        return $this->belongsTo(User::class, 'opponent_id', 'id')->select('id', 'uid', 'name', 'profile', 'fcm_device_token', 'refer_by', 'refer_income', 'game_wallet_amount', 'win_wallet_amount');
+        return $this->belongsTo(User::class, 'opponent_id', 'id')
+            ->withoutGlobalScopes()
+            ->select('id', 'uid', 'name', 'profile', 'fcm_device_token', 'refer_by', 'refer_income', 'game_wallet_amount', 'win_wallet_amount');
     }
 
     # End Game Type

@@ -178,9 +178,13 @@
 				},
 				{
 					data: 'game_play_count',
+					searchable: false,
+					orderable: false
 				},
 				{
-					data: 'refer_count'
+					data: 'refer_count',
+					searchable: false,
+					orderable: false
 				},
 				{
 					data: 'withdrawal_status_view',

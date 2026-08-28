@@ -85,6 +85,12 @@ class User extends Authenticatable
         'king_player_id',
     ];
 
+    /**
+     * Admin DataTables skip expensive accessors (game counts, referral sums)
+     * that would otherwise run a query per listed row.
+     */
+    public static bool $skipAppends = false;
+
     protected $hidden = [
         'kyc_status_label',
         'kyc_status_view',
@@ -101,6 +107,15 @@ class User extends Authenticatable
         'password',
         'remember_token',
     ];
+
+    protected function getArrayableAppends()
+    {
+        if (static::$skipAppends) {
+            return [];
+        }
+
+        return parent::getArrayableAppends();
+    }
 
     # Is Profile Completed
     public function getIsProfileUpdatedAttribute(){
@@ -220,6 +235,21 @@ class User extends Authenticatable
     public function refer_by_user()
     {
         return $this->belongsTo(User::class, 'refer_by', 'id')->select('id', 'name', 'uid');
+    }
+
+    public function referredUsers()
+    {
+        return $this->hasMany(User::class, 'refer_by', 'id');
+    }
+
+    public function asChallenger()
+    {
+        return $this->hasMany(GameChallenge::class, 'challenger_id');
+    }
+
+    public function asOpponent()
+    {
+        return $this->hasMany(GameChallenge::class, 'opponent_id');
     }
 
     public function refer_users()

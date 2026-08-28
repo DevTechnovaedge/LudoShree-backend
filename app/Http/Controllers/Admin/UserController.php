@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Models\GameChallenge\CommissionHistory;
 use App\Models\GameChallenge\GameChallenge;
+use App\Support\AdminSearch;
 
 class UserController extends Controller
 {
@@ -76,12 +77,46 @@ class UserController extends Controller
 
         if (request()->ajax()) :
 
-            $data       =  $this->eloquentModel()->latest('otp_expires_at')->withoutGlobalScope('active')->with('refer_by_user:refer_by,id,uid');
+            User::$skipAppends = true;
+
+            $data = $this->eloquentModel()
+                ->withoutGlobalScope('verified_mobile')
+                ->select([
+                    'id',
+                    'uid',
+                    'name',
+                    'email',
+                    'mobile',
+                    'otp',
+                    'otp_expires_at',
+                    'refer_by',
+                    'kyc_status',
+                    'status',
+                    'withdrawal_status',
+                    'win_wallet_amount',
+                    'game_wallet_amount',
+                    'created_at',
+                ])
+                ->with(['refer_by_user' => function ($query) {
+                    $query->withoutGlobalScopes()->select('id', 'uid', 'name');
+                }])
+                ->withCount([
+                    'asChallenger as challenger_games_count',
+                    'asOpponent as opponent_games_count',
+                    'referredUsers as referred_users_count',
+                ])
+                ->latest('id');
+
+            $keyword = AdminSearch::keyword();
+            if ($keyword !== '') {
+                AdminSearch::applyUserColumns($data, $keyword);
+            }
 
             $registrationDate = $this->resolveUserRegistrationDateFilter();
+            $registrationRange = AdminSearch::dayRange($registrationDate);
 
-            if ($registrationDate) {
-                $data->whereDate('created_at', $registrationDate);
+            if ($registrationRange) {
+                $data->whereBetween('created_at', $registrationRange);
             }
 
             switch (request()->filter):
@@ -112,18 +147,18 @@ class UserController extends Controller
             endif;
 
             if ($from && !$to):
-                $data = $data->whereDate('created_at', '>=', $from);
+                $data->where('created_at', '>=', $from);
             endif;
 
             if (!$from && $to):
-                $data = $data->whereDate('created_at', '<=', $to);
+                $data->where('created_at', '<=', $to);
             endif;
             # End From - To
             # End Filter
 
             return datatables()->eloquent($data)
-                    
-                 ->addIndexColumn()
+                ->filter(function () {}, false)
+                ->addIndexColumn()
                 ->editColumn('name', function ($record) {
                     $name               =   $record->name;
 
@@ -157,13 +192,19 @@ class UserController extends Controller
                 })
                 
                 ->addColumn('game_play_count', function ($record) {
-                    return $record->game_play_count ?? 0;
+                    return (int) ($record->challenger_games_count ?? 0) + (int) ($record->opponent_games_count ?? 0);
                 })
                 ->addColumn('refer_count', function ($record) {
-                    return $record->refer_count ?? 0;
+                    return (int) ($record->referred_users_count ?? 0);
                 })
-                ->addColumn('refer_by', function ($record) {
-                    return ($record->refer_by_user->uid ?? 0) ? $record->refer_by_user->uid : '-';
+                ->addColumn('withdrawal_status_view', function ($record) {
+                    return $record->withdrawal_status_view;
+                })
+                ->addColumn('total_wallet_amount', function ($record) {
+                    return $record->total_wallet_amount;
+                })
+                ->addColumn('status_view', function ($record) {
+                    return $record->status_view;
                 })
                 ->addColumn('withdrawal', function ($record) {
                     return 0;

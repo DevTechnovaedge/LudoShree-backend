@@ -8,6 +8,7 @@ use App\Models\GameChallenge\GameChallenge;
 use App\Models\GameChallenge\Transaction;
 use App\Models\GameChallenge\Wallet;
 use App\Models\User;
+use App\Support\AdminSearch;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -61,11 +62,24 @@ class WalletController extends Controller
 
         if (request()->ajax()) :
 
-            $data       =  $this->eloquentModel()->with('user')->latest('id');
+            User::$skipAppends = true;
 
-            if (request()->date):
-                $data->whereDate('created_at', request()->date);
-            endif;
+            $data = $this->eloquentModel()
+                ->select('wallet.*')
+                ->with(['user' => function ($query) {
+                    $query->withoutGlobalScopes()->select('id', 'uid', 'name', 'profile', 'mobile');
+                }])
+                ->latest('id');
+
+            $dateRange = AdminSearch::dayRange(request()->date);
+            if ($dateRange) {
+                $data->whereBetween('created_at', $dateRange);
+            }
+
+            $keyword = AdminSearch::keyword();
+            if ($keyword !== '') {
+                AdminSearch::applyWalletSearch($data, $keyword);
+            }
 
             #
             $slug = request()->segment(2);
@@ -84,13 +98,9 @@ class WalletController extends Controller
                     break;
             endswitch;
             #
-            // $data = $data->get()->makeVisible(['status_view']);
-            // return $data->toRawSql();
-            return datatables()->of($data)
+            return datatables()->eloquent($data)
+                ->filter(function () {}, false)
                 ->addIndexColumn()
-                ->filterColumn('remark', function($query, $keyword) {
-                    $query->where('remark', 'like', "%" . $keyword . "%");
-                })
                 ->addColumn('user_details', function ($row) {
                     $uid = $row->user->uid ?? '';
                     $id = $row->user->id ?? '';
@@ -144,6 +154,7 @@ class WalletController extends Controller
                 })
 
                 ->rawColumns(['user_details', 'win_wallet', 'game_wallet', 'total_amount', 'total_balance'])
+                ->removeColumn('user')
                 ->make(true);
         endif;
 

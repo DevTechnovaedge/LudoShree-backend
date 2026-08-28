@@ -225,12 +225,13 @@
 			columns: [{
 					data: 'DT_RowIndex',
 					orderable: false,
-					searchable: true,
+					searchable: false,
 					name:"id"
 				},
 				{
 					data: 'user_details',
-					name:"user.mobile"
+					name:"user.mobile",
+					searchable: true
 				},
 				{
 					data: 'remark',
@@ -239,25 +240,32 @@
 				},
 				{
 					data: 'win_wallet',
-					name: 'win_wallet'
+					name: 'win_wallet',
+					searchable: false,
+					orderable: false
 				},
 				{
 					data: 'game_wallet',
-					name: 'game_wallet'
+					name: 'game_wallet',
+					searchable: false,
+					orderable: false
 				},
 				{
 					data: 'total_amount',
 					name: 'total_amount',
-					name:"user.uid"
+					searchable: false,
+					orderable: false
 				},
 				{
 					data: 'win_and_game_total_amount',
 					name: 'win_and_game_total_amount',
-					name:"user.name"
+					searchable: false,
+					orderable: false
 				},
 				{
 					data: 'created_at',
-					name: 'created_at'
+					name: 'created_at',
+					searchable: false
 				}
 			]
 		});

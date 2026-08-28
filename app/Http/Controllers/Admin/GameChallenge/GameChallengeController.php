@@ -9,6 +9,7 @@ use App\Models\GameChallenge\Wallet;
 use App\Models\User;
 use App\Services\GameChallengeWinnerPayoutService;
 use App\Services\GameChallengeAutoSettleService;
+use App\Support\AdminSearch;
 use Illuminate\Http\Request;
 class GameChallengeController extends Controller
 {
@@ -99,12 +100,11 @@ class GameChallengeController extends Controller
         $this->authorize('permissions', [$this->permission_key, 'view']);
 
         if (request()->ajax()) :
-            
-            // Capture search keyword
-            $keyword = request('search')['value'] ?? null;
+
+            User::$skipAppends = true;
 
             $stats = app(AdminDashboardStatsService::class);
-            $data       =  $this->eloquentModel()->with(['challenger', 'opponent'])->latest();
+            $data = $this->eloquentModel()->with(['challenger', 'opponent'])->latest('id');
 
             $completedDateFilters = ['complete_challenges', 'classic', 'ulta-ludo'];
 
@@ -162,38 +162,31 @@ class GameChallengeController extends Controller
             if (request()->date) {
                 if (in_array(request()->filter, $completedDateFilters, true)) {
                     $day = $stats->filterDateString(request()->date);
-                    $data->where(function ($query) use ($day) {
-                        $query->whereDate('closed_at', $day)
-                            ->orWhere(function ($inner) use ($day) {
-                                $inner->whereNull('closed_at')
-                                    ->whereDate('created_at', $day);
-                            });
-                    });
+                    $range = AdminSearch::dayRange($day);
+                    if ($range) {
+                        $data->where(function ($query) use ($range) {
+                            $query->whereBetween('closed_at', $range)
+                                ->orWhere(function ($inner) use ($range) {
+                                    $inner->whereNull('closed_at')
+                                        ->whereBetween('created_at', $range);
+                                });
+                        });
+                    }
                 } else {
-                    $data->whereDate('created_at', request()->date);
+                    $range = AdminSearch::dayRange(request()->date);
+                    if ($range) {
+                        $data->whereBetween('created_at', $range);
+                    }
                 }
             }
 
-            if ($keyword) {
-                $data->where(function ($query) use ($keyword) {
-                    $query->where('uid', 'LIKE', '%' . $keyword . '%')
-                          ->orWhere('roomcode', 'LIKE', '%' . $keyword . '%')
-                          ->orWhereHas('challenger', function ($subQuery) use ($keyword) {
-                              $subQuery->where('uid', 'LIKE', '%' . $keyword . '%')
-                                       ->orWhere('name', 'LIKE', '%' . $keyword . '%');
-                          })
-                          ->orWhereHas('opponent', function ($subQuery) use ($keyword) {
-                              $subQuery->where('uid', 'LIKE', '%' . $keyword . '%')
-                                       ->orWhere('name', 'LIKE', '%' . $keyword . '%');
-                          });
-                });
+            $keyword = AdminSearch::keyword();
+            if ($keyword !== '') {
+                AdminSearch::applyGameChallengeSearch($data, $keyword);
             }
-            
-            // return $data->toRawSql();
-            
-            // $data       =   $data->get()->makeVisible(['status_view']);
 
-            return datatables()->of($data)
+            return datatables()->eloquent($data)
+                ->filter(function () {}, false)
                 ->addIndexColumn()
                 ->addColumn('roomcode_details', function ($record) {
 

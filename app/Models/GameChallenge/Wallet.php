@@ -28,7 +28,9 @@ class Wallet extends Model
                                 ];
 
     public  function user(){
-        return $this->belongsTo(User::class, 'user_id', 'id')->select('id', 'uid', 'name', 'profile', 'mobile');
+        return $this->belongsTo(User::class, 'user_id', 'id')
+            ->withoutGlobalScopes()
+            ->select('id', 'uid', 'name', 'profile', 'mobile');
     }
 
     public function getCreatedAtAttribute($val){

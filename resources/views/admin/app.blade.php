@@ -1148,9 +1148,16 @@
 
 
   <script>
+    var searchTimer;
     $('#serach-datatable').on('input', function() {
-      table.search($(this).val()).draw();
-    })
+      var val = $(this).val();
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(function() {
+        if (typeof table !== 'undefined') {
+          table.search(val).draw();
+        }
+      }, 350);
+    });
 
     /** Please Wait Popup */
     function please_wait(){
