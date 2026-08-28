@@ -147,6 +147,10 @@ class GameChallengeStakeRefundService
             ->where('game_challenge_id', $gameChallengeId)
             ->where('user_id', $userId)
             ->where('type', 'debit')
+            ->where(function ($q) {
+                $q->where('remark', 'like', 'Challenge created%')
+                    ->orWhere('remark', 'like', 'Challenge accepted%');
+            })
             ->get()
             ->groupBy('wallet_type')
             ->map(fn ($rows) => round((float) $rows->sum('amount'), 2));

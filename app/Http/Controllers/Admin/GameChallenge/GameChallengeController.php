@@ -354,7 +354,9 @@ class GameChallengeController extends Controller
 
         $bothCancelled = (int) $game_challenge->challenger_status === 3
             && (int) $game_challenge->opponent_status === 3;
-        if ($bothCancelled || (int) $game_challenge->status === 7) {
+        // Only auto-refund when admin is actually cancelling. A win/penalty
+        // action on a dispute must keep both stakes and follow $action.
+        if ($action === 'cancel' && ($bothCancelled || (int) $game_challenge->status === 7)) {
             $game_challenge->challenger_status = 3;
             $game_challenge->opponent_status = 3;
             $game_challenge->status = 7;
@@ -471,28 +473,44 @@ class GameChallengeController extends Controller
     # 
     function applyPenalty($user, $game_challenge, $wallet_type)
     {
-        $penalty_amount_charge = site_setting()->penalty_amount;
-        $remaining_penalty_amount = $penalty_amount_charge;
-    
-        // Deduct from both wallets in order
-        $remaining_penalty_amount = $this->deductFromWallet(
-            $user, $game_challenge, 'game', $user->game_wallet_amount, $remaining_penalty_amount
-        );
-    
-        if ($remaining_penalty_amount > 0) {
-            $remaining_penalty_amount = $this->deductFromWallet(
-                $user, $game_challenge, 'win', $user->win_wallet_amount, $remaining_penalty_amount
-            );
+        $penalty_amount_charge = round((float) site_setting()->penalty_amount, 2);
+        if (! $user || $penalty_amount_charge <= 0) {
+            return;
         }
-    
-        // Save user wallet updates in one go
-        $user->save();
-    
-        // Update Game Challenge penalty information
+
+        $wallet = app(\App\Services\WalletService::class);
+        $remaining_penalty_amount = $penalty_amount_charge;
+
+        foreach (['game', 'win'] as $column) {
+            if ($remaining_penalty_amount <= 0) {
+                break;
+            }
+
+            $balances = $wallet->balances((int) $user->id);
+            if (! $balances) {
+                break;
+            }
+
+            $take = round(min($balances[$column], $remaining_penalty_amount), 2);
+            if ($take <= 0) {
+                continue;
+            }
+
+            $debited = $wallet->debit((int) $user->id, $column, $take, [
+                'game_challenge_id' => $game_challenge->id,
+                'remark' => "Penalty Deducted from {$column} Wallet Ref: {$game_challenge->uid}",
+                'status' => 1,
+            ]);
+
+            if ($debited) {
+                $remaining_penalty_amount = round($remaining_penalty_amount - $take, 2);
+            }
+        }
+
         $game_challenge->update([
             'penalty'                   => 1,
             'total_penalty_amount'       => $penalty_amount_charge,
-            'deducted_penalty_amount'    => $penalty_amount_charge - $remaining_penalty_amount,
+            'deducted_penalty_amount'    => round($penalty_amount_charge - $remaining_penalty_amount, 2),
             'remaining_penalty_amount'   => $remaining_penalty_amount,
             'penalty_status'             => ($remaining_penalty_amount) ? 0 : 1,
         ]);

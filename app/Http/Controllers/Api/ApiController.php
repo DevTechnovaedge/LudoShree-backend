@@ -1339,13 +1339,18 @@ class ApiController extends Controller
 
                     $hasOpponent = (int) $locked->opponent_id > 0;
                     $hasRoomcode = ! empty($locked->roomcode);
+                    $matchStarted = $hasOpponent && $hasRoomcode;
                     $otherSideCancelled = $isChallenger
                         ? (int) $locked->opponent_status === 3
                         : (int) $locked->challenger_status === 3;
+                    $otherSideClaimedWin = $isChallenger
+                        ? (int) $locked->opponent_status === 1
+                        : (int) $locked->challenger_status === 1;
 
-                    $fullyClosed = ! $hasOpponent
-                        || ! $hasRoomcode
-                        || $otherSideCancelled
+                    // Waiting tables can close immediately. A started match
+                    // (roomcode + opponent) must hold both stakes until the
+                    // other player also cancels, or admin decides a dispute.
+                    $fullyClosed = ! $matchStarted
                         || in_array((int) $locked->status, [3, 7], true)
                         || ((int) $locked->challenger_status === 3 && (int) $locked->opponent_status === 3);
 
@@ -1371,13 +1376,12 @@ class ApiController extends Controller
                         } else {
                             $cancelAlreadyDone = true;
                         }
-                    } elseif (! $hasOpponent || ! $hasRoomcode || $otherSideCancelled) {
+                    } elseif (! $matchStarted || $otherSideCancelled) {
                         $locked->status = 7;
                         $locked->challenger_status = 3;
                         $locked->opponent_status = 3;
                         $fullyClosed = true;
                     } else {
-                        $locked->status = 2;
                         if ($isChallenger) {
                             $locked->challenger_status = 3;
                         }
@@ -1388,6 +1392,10 @@ class ApiController extends Controller
                             && (int) $locked->opponent_status === 3;
                         if ($fullyClosed) {
                             $locked->status = 7;
+                        } elseif ($otherSideClaimedWin) {
+                            $locked->status = 5;
+                        } else {
+                            $locked->status = 2;
                         }
                     }
 
@@ -1398,25 +1406,16 @@ class ApiController extends Controller
                     $locked->is_lock = 0;
                     $locked->save();
 
-                    if ($fullyClosed) {
+                    if ($fullyClosed && ! $cancelAlreadyDone) {
                         $refundService->refundAllStakes($locked);
-                    } else {
-                        // Refund the cancelling player immediately; the opponent
-                        // is refunded when they cancel too (idempotent service).
-                        $cancelRemark = "Challenge Refund Ref: {$locked->uid}";
-                        $refundedNow = $refundService->refundUserStake(
-                            (int) $locked->id,
-                            (int) $user->id,
-                            $cancelRemark
-                        );
-
-                        Log::info('[challenge.cancel] partial refund for cancelling player', [
+                    } elseif (! $fullyClosed) {
+                        Log::info('[challenge.cancel] stake held for admin/dispute', [
                             'game_challenge_id' => $locked->id,
                             'uid' => $locked->uid,
                             'user_id' => $user->id,
-                            'refunded' => $refundedNow,
                             'challenger_status' => $locked->challenger_status,
                             'opponent_status' => $locked->opponent_status,
+                            'status' => $locked->status,
                             'roomcode' => $locked->roomcode,
                         ]);
                     }
@@ -2204,8 +2203,8 @@ class ApiController extends Controller
 
             if (request()->type === 'cancel') {
                 $freshCancel = $game_challenge;
-                $fullyClosed = (int) $freshCancel->opponent_id <= 0
-                    || empty($freshCancel->roomcode)
+                $matchStarted = (int) $freshCancel->opponent_id > 0 && ! empty($freshCancel->roomcode);
+                $fullyClosed = ! $matchStarted
                     || in_array((int) $freshCancel->status, [3, 7], true)
                     || ((int) $freshCancel->challenger_status === 3 && (int) $freshCancel->opponent_status === 3);
                 if ($fullyClosed) {
