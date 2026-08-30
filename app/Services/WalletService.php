@@ -63,6 +63,41 @@ class WalletService
     }
 
     /**
+     * Stake for create/accept: take game wallet first, then win wallet.
+     * Uses atomic column updates so a refund that landed in this same
+     * request cannot be overwritten by a stale User::save().
+     */
+    public function debitEntryStake(int $userId, float $amount, array $ledger = [], bool $quiet = true): bool
+    {
+        $amount = round(abs($amount), 2);
+        if ($userId <= 0 || $amount <= 0) {
+            return false;
+        }
+
+        $runner = function () use ($userId, $amount, $ledger, $quiet) {
+            $balances = $this->balances($userId);
+            if (! $balances || ($balances['total'] + 0.001) < $amount) {
+                return false;
+            }
+
+            $fromGame = round(min($balances['game'], $amount), 2);
+            $fromWin = round($amount - $fromGame, 2);
+
+            if ($fromGame > 0 && ! $this->debit($userId, 'game', $fromGame, $ledger, $quiet, true)) {
+                return false;
+            }
+
+            if ($fromWin > 0 && ! $this->debit($userId, 'win', $fromWin, $ledger, $quiet, true)) {
+                return false;
+            }
+
+            return true;
+        };
+
+        return (bool) (DB::transactionLevel() > 0 ? $runner() : DB::transaction($runner));
+    }
+
+    /**
      * Refer commission payout: tracking column plus the spendable wallet.
      *
      * `refer_to == 'game_amount'` crediting the win wallet is pre-existing

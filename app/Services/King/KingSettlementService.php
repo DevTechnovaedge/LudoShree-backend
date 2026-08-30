@@ -346,6 +346,10 @@ class KingSettlementService
         $challenge->challenger_remark = $reason;
         $challenge->is_lock = 0;
         $challenge->save();
+
+        // Local creators already paid a stake on this mirror. Ghost creators
+        // never did, so refundAllStakes is a no-op for them.
+        $this->refundLocalSides($challenge);
     }
 
     /* =====================================================================
@@ -401,65 +405,10 @@ class KingSettlementService
      */
     private function debitStake(User $user, GameChallenge $challenge, float $fee, string $remark): bool
     {
-        $locked = User::query()->withoutGlobalScopes()->lockForUpdate()->find($user->id);
-        if (! $locked) {
-            return false;
-        }
-
-        $gameWallet = (float) $locked->game_wallet_amount;
-        $winWallet = (float) $locked->win_wallet_amount;
-
-        if ($gameWallet + $winWallet < $fee) {
-            return false;
-        }
-
-        if ($gameWallet >= $fee) {
-            $newBalance = $gameWallet - $fee;
-            Wallet::create([
-                'user_id' => $locked->id,
-                'game_challenge_id' => $challenge->id,
-                'type' => 'debit',
-                'wallet_type' => 'game',
-                'remark' => $remark,
-                'amount' => $fee,
-                'total_balance' => $newBalance,
-                'status' => 0,
-            ]);
-            $locked->game_wallet_amount = $newBalance;
-        } else {
-            $remaining = $fee - $gameWallet;
-
-            if ($gameWallet > 0) {
-                Wallet::create([
-                    'user_id' => $locked->id,
-                    'game_challenge_id' => $challenge->id,
-                    'type' => 'debit',
-                    'wallet_type' => 'game',
-                    'remark' => $remark,
-                    'amount' => $gameWallet,
-                    'total_balance' => 0,
-                    'status' => 0,
-                ]);
-                $locked->game_wallet_amount = 0;
-            }
-
-            $newWinBalance = $winWallet - $remaining;
-            Wallet::create([
-                'user_id' => $locked->id,
-                'game_challenge_id' => $challenge->id,
-                'type' => 'debit',
-                'wallet_type' => 'win',
-                'remark' => $remark,
-                'amount' => $remaining,
-                'total_balance' => $newWinBalance,
-                'status' => 0,
-            ]);
-            $locked->win_wallet_amount = $newWinBalance;
-        }
-
-        $locked->save();
-
-        return true;
+        return app(\App\Services\WalletService::class)->debitEntryStake((int) $user->id, $fee, [
+            'game_challenge_id' => $challenge->id,
+            'remark' => $remark,
+        ]);
     }
 
     private function localSideUser(GameChallenge $challenge): ?User

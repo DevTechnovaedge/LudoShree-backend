@@ -1105,59 +1105,15 @@ class ApiController extends Controller
                     $waitingDismiss->dismissWaitingGamesForChallenger($lockedChallenge->challenger_id, $lockedChallenge->id);
                     $waitingDismiss->dismissWaitingGamesForChallenger($user->id);
 
-                    $game_wallet_amount = (float) $lockedUser->game_wallet_amount;
-                    $win_wallet_amount = (float) $lockedUser->win_wallet_amount;
-                    $remaining_challenge_amount = $opponent_game_fee;
+                    $walletService = app(WalletService::class);
+                    $debited = $walletService->debitEntryStake((int) $lockedUser->id, $opponent_game_fee, [
+                        'game_challenge_id' => $lockedChallenge->id,
+                        'remark' => "Challenge accepted. Ref: $lockedChallenge->uid",
+                    ]);
 
-                    if ($game_wallet_amount >= $opponent_game_fee) {
-                        $new_game_wallet_balance = $game_wallet_amount - $opponent_game_fee;
-                        Wallet::create([
-                            'user_id' => $lockedUser->id,
-                            'game_challenge_id' => $lockedChallenge->id,
-                            'type' => 'debit',
-                            'wallet_type' => 'game',
-                            'remark' => "Challenge accepted. Ref: $lockedChallenge->uid",
-                            'amount' => $opponent_game_fee,
-                            'total_balance' => $new_game_wallet_balance,
-                            'status' => 0,
-                        ]);
-                        $lockedUser->game_wallet_amount = $new_game_wallet_balance;
-                    } else {
-                        $remaining_challenge_amount -= $game_wallet_amount;
-
-                        if ($game_wallet_amount > 0) {
-                            Wallet::create([
-                                'user_id' => $lockedUser->id,
-                                'game_challenge_id' => $lockedChallenge->id,
-                                'type' => 'debit',
-                                'wallet_type' => 'game',
-                                'remark' => "Challenge accepted. Ref: $lockedChallenge->uid",
-                                'amount' => $game_wallet_amount,
-                                'total_balance' => 0,
-                                'status' => 0,
-                            ]);
-                            $lockedUser->game_wallet_amount = 0;
-                        }
-
-                        if ($win_wallet_amount >= $remaining_challenge_amount && $remaining_challenge_amount > 0) {
-                            $new_win_wallet_balance = $win_wallet_amount - $remaining_challenge_amount;
-                            Wallet::create([
-                                'user_id' => $lockedUser->id,
-                                'game_challenge_id' => $lockedChallenge->id,
-                                'type' => 'debit',
-                                'wallet_type' => 'win',
-                                'remark' => "Challenge accepted. Ref: $lockedChallenge->uid",
-                                'amount' => $remaining_challenge_amount,
-                                'total_balance' => $new_win_wallet_balance,
-                                'status' => 0,
-                            ]);
-                            $lockedUser->win_wallet_amount = $new_win_wallet_balance;
-                        } else {
-                            throw new \RuntimeException('INSUFFICIENT_BALANCE_ON_ACCEPT');
-                        }
+                    if (! $debited) {
+                        throw new \RuntimeException('INSUFFICIENT_BALANCE_ON_ACCEPT');
                     }
-
-                    $lockedUser->save();
 
                     $lockedChallenge->amount = $opponent_game_fee * 2;
                     $lockedChallenge->opponent_id = $user->id;
@@ -1166,8 +1122,11 @@ class ApiController extends Controller
                     $lockedChallenge->is_lock = 0;
                     $lockedChallenge->save();
 
-                    $user->game_wallet_amount = $lockedUser->game_wallet_amount;
-                    $user->win_wallet_amount = $lockedUser->win_wallet_amount;
+                    $balances = $walletService->balances((int) $lockedUser->id);
+                    if ($balances) {
+                        $user->game_wallet_amount = $balances['game'];
+                        $user->win_wallet_amount = $balances['win'];
+                    }
                     $game_challenge = $lockedChallenge;
                 });
                 } catch (\RuntimeException $acceptException) {
@@ -2104,66 +2063,23 @@ class ApiController extends Controller
         $data['is_lock']   =   0;
 
         $debitCreateStake = function () use ($user, &$game_challenge, $amount): void {
-            $lockedUser = User::query()->lockForUpdate()->find($user->id);
-            if (! $lockedUser) {
+            User::query()->lockForUpdate()->find($user->id);
+
+            $walletService = app(WalletService::class);
+            $debited = $walletService->debitEntryStake((int) $user->id, (float) $amount, [
+                'game_challenge_id' => $game_challenge->id,
+                'remark' => "Challenge created. Ref: $game_challenge->uid",
+            ]);
+
+            if (! $debited) {
                 throw new \RuntimeException('INSUFFICIENT_BALANCE_AFTER_CREATE');
             }
 
-            $game_wallet_amount = (float) $lockedUser->game_wallet_amount;
-            $win_wallet_amount = (float) $lockedUser->win_wallet_amount;
-            $available = $game_wallet_amount + $win_wallet_amount;
-            if ((float) $amount > $available + 0.001) {
-                throw new \RuntimeException('INSUFFICIENT_BALANCE_AFTER_CREATE');
+            $balances = $walletService->balances((int) $user->id);
+            if ($balances) {
+                $user->game_wallet_amount = $balances['game'];
+                $user->win_wallet_amount = $balances['win'];
             }
-
-            $runningTotal = $available;
-
-            $recordDebit = function (string $walletType, float $debitAmount, float $newBalance) use (
-                &$runningTotal,
-                $lockedUser,
-                $game_challenge
-            ): void {
-                Wallet::withoutEvents(function () use ($walletType, $debitAmount, $newBalance, $runningTotal, $lockedUser, $game_challenge) {
-                    Wallet::create([
-                        'user_id' => $lockedUser->id,
-                        'game_challenge_id' => $game_challenge->id,
-                        'type' => 'debit',
-                        'wallet_type' => $walletType,
-                        'remark' => "Challenge created. Ref: $game_challenge->uid",
-                        'amount' => $debitAmount,
-                        'total_balance' => $newBalance,
-                        'status' => 0,
-                        'win_and_game_total_amount' => round($runningTotal - $debitAmount, 2),
-                    ]);
-                });
-                $runningTotal -= $debitAmount;
-            };
-
-            if ($game_wallet_amount >= $amount) {
-                $new_game_wallet_balance = $game_wallet_amount - $amount;
-                $recordDebit('game', (float) $amount, $new_game_wallet_balance);
-                $lockedUser->game_wallet_amount = $new_game_wallet_balance;
-            } else {
-                $remaining_challenge_amount = $amount - $game_wallet_amount;
-                $new_game_wallet_balance = 0;
-
-                if ($game_wallet_amount > 0) {
-                    $recordDebit('game', $game_wallet_amount, $new_game_wallet_balance);
-                    $lockedUser->game_wallet_amount = $new_game_wallet_balance;
-                }
-
-                if ($win_wallet_amount >= $remaining_challenge_amount && $remaining_challenge_amount > 0) {
-                    $new_win_wallet_balance = $win_wallet_amount - $remaining_challenge_amount;
-                    $recordDebit('win', (float) $remaining_challenge_amount, $new_win_wallet_balance);
-                    $lockedUser->win_wallet_amount = $new_win_wallet_balance;
-                } else {
-                    throw new \RuntimeException('INSUFFICIENT_BALANCE_AFTER_CREATE');
-                }
-            }
-
-            $lockedUser->saveQuietly();
-            $user->game_wallet_amount = $lockedUser->game_wallet_amount;
-            $user->win_wallet_amount = $lockedUser->win_wallet_amount;
         };
 
         try {
