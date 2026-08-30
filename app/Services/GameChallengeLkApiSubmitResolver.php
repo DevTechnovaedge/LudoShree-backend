@@ -32,11 +32,17 @@ class GameChallengeLkApiSubmitResolver
         $settled = $this->settleFromOfficialApi($game_challenge);
 
         if (! $settled) {
-            $fresh = GameChallenge::find($game_challenge->id);
+            $fresh = GameChallenge::with(['challenger', 'opponent'])->find($game_challenge->id);
             if ($fresh && (int) $fresh->status === 4) {
+                event(new DemoEvent(''));
+                $freshUser = User::query()->withoutGlobalScopes()->find($user->id);
+
                 return response()->json([
-                    'status' => false,
-                    'message' => 'Already completed',
+                    'status' => true,
+                    'message' => 'Result synced from official game server.',
+                    'rules' => site_setting()->rules,
+                    'data' => new GameChallengeResource($fresh),
+                    'user' => new UserResource($freshUser ?? $user),
                 ]);
             }
 
@@ -179,24 +185,36 @@ class GameChallengeLkApiSubmitResolver
 
         $lastRaw = null;
         $lastId = null;
+        $result = null;
 
-        foreach ($ids as $gameId) {
-            $raw = $this->lk->gameStatus($gameId);
-            if ($raw === null) {
-                continue;
+        for ($attempt = 1; $attempt <= 2; $attempt++) {
+            foreach ($ids as $gameId) {
+                $raw = $this->lk->gameStatus($gameId);
+                if ($raw === null) {
+                    continue;
+                }
+
+                $lastRaw = $raw;
+                $lastId = $gameId;
+
+                if (! isset($raw->game_id) && (isset($raw->msg) || (isset($raw->status) && is_numeric($raw->status ?? null)))) {
+                    continue;
+                }
+
+                $side = $this->lk->winnerSide($raw);
+                if ($side !== null) {
+                    $result = ['raw' => $raw, 'side' => $side, 'game_id' => $gameId];
+                    break 2;
+                }
             }
 
-            $lastRaw = $raw;
-            $lastId = $gameId;
-
-            if (! isset($raw->game_id) && (isset($raw->msg) || (isset($raw->status) && is_numeric($raw->status ?? null)))) {
-                continue;
+            if ($attempt === 1) {
+                usleep(2_000_000);
             }
+        }
 
-            $side = $this->lk->winnerSide($raw);
-            if ($side !== null) {
-                return ['raw' => $raw, 'side' => $side, 'game_id' => $gameId];
-            }
+        if ($result !== null) {
+            return $result;
         }
 
         Log::info('[LK auto-settle] skipped: winner not ready', [

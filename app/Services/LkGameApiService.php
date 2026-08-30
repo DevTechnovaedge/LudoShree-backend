@@ -230,6 +230,12 @@ class LkGameApiService
      * Who won in *our* model: challenger = LK creator, opponent = LK player/joiner.
      * Derived only from result API fields (ids compared within payload, optional role booleans/strings).
      *
+     * Do not ignore a winner just because game_status is still "Running".
+     * Players submit Win as soon as the 4th token homes; LK often keeps
+     * Running + winner_id=null for several seconds. Loss is usually tapped later,
+     * after LK flips to Finished — that is why loss auto-settle looked like it
+     * worked and win did not.
+     *
      * @return 'challenger'|'opponent'|null
      */
     public function winnerSide(object $resolvedPayload): ?string
@@ -239,13 +245,12 @@ class LkGameApiService
             return null;
         }
 
-        $gsNorm = strtolower(trim((string) ($resolvedPayload->game_status ?? $resolvedPayload->status ?? '')));
-        $inProgress = ['waiting', 'started', 'playing', 'ongoing', 'running', 'inprogress', 'in_progress', 'pending'];
-        if (in_array($gsNorm, $inProgress, true)) {
-            return null;
+        $fromPayload = $this->creatorOrPlayerWonSideFromPayload($resolvedPayload);
+        if ($fromPayload !== null) {
+            return $fromPayload;
         }
 
-        return $this->creatorOrPlayerWonSideFromPayload($resolvedPayload);
+        return $this->winnerFromTokenPositions($resolvedPayload);
     }
 
     /**
@@ -319,6 +324,57 @@ class LkGameApiService
         }
 
         return null;
+    }
+
+    /**
+     * Classic LK: a token at 56 is home. All four home and the other side
+     * not fully home is a finished win, even while game_status is still Running.
+     *
+     * @return 'challenger'|'opponent'|null
+     */
+    private function winnerFromTokenPositions(object $p): ?string
+    {
+        if ($this->lkBoolMeansTrue($p->threePlayerGame ?? false)) {
+            return null;
+        }
+
+        $positions = $p->tokenPositions ?? $p->token_positions ?? null;
+        if (is_array($positions)) {
+            $positions = (object) $positions;
+        }
+        if (! is_object($positions)) {
+            return null;
+        }
+
+        $creatorHome = $this->allTokensHome($positions->creator ?? null);
+        $playerHome = $this->allTokensHome($positions->player ?? $positions->player1 ?? null);
+
+        if ($creatorHome && ! $playerHome) {
+            return 'challenger';
+        }
+        if ($playerHome && ! $creatorHome) {
+            return 'opponent';
+        }
+
+        return null;
+    }
+
+    private function allTokensHome(mixed $tokens): bool
+    {
+        if (is_object($tokens)) {
+            $tokens = (array) $tokens;
+        }
+        if (! is_array($tokens) || count($tokens) < 4) {
+            return false;
+        }
+
+        foreach ($tokens as $pos) {
+            if (! is_numeric($pos) || (int) $pos < 56) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
