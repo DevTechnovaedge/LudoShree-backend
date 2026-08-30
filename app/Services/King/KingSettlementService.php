@@ -3,7 +3,6 @@
 namespace App\Services\King;
 
 use App\Models\GameChallenge\GameChallenge;
-use App\Models\GameChallenge\Wallet;
 use App\Models\King\KingEventLog;
 use App\Models\King\KingOutbox;
 use App\Models\User;
