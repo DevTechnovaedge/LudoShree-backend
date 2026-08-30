@@ -1543,9 +1543,10 @@ class ApiController extends Controller
                     return response()->json(['status' => false, 'message' => 'Roomcode not available']);
                 endif;
 
-                # King cross-platform games are settled via the King network
-                # (ResultUpdateRequest), not the LK auto-resolver.
-                if (! $game_challenge->isKingLinked()) {
+                # Only true cross-platform games (a King ghost holds one seat) are
+                # settled via the King network (ResultUpdateRequest). A local table
+                # that merely carries a king_table_id must still use the LK resolver.
+                if (! $game_challenge->isCrossPlatformKingGame()) {
                     $lkSubmit = $this->tryLkOfficialResultSettlement($game_challenge, $user);
                     if ($lkSubmit !== null) {
                         unlock_game_challenge($game_challenge);
@@ -1807,8 +1808,8 @@ class ApiController extends Controller
                     return response()->json(['status' => false, 'message' => 'Roomcode not available']);
                 endif;
 
-                # King cross-platform games are settled via the King network.
-                if (! $game_challenge->isKingLinked()) {
+                # Only true cross-platform games are settled via the King network.
+                if (! $game_challenge->isCrossPlatformKingGame()) {
                     $lkSubmitLoser = $this->tryLkOfficialResultSettlement($game_challenge, $user);
                     if ($lkSubmitLoser !== null) {
                         unlock_game_challenge($game_challenge);

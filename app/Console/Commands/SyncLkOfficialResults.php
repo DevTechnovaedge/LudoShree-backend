@@ -36,14 +36,11 @@ class SyncLkOfficialResults extends Command
             ->whereNotNull('roomcode')
             ->where('roomcode', '!=', '')
             ->where(function ($q): void {
-                $q->whereNull('king_table_id')->orWhere('king_table_id', '');
-            })
-            ->where(function ($q): void {
                 $q->whereNull('game_source')->orWhere('game_source', '!=', 'daddy_king');
             })
             ->where('created_at', '>=', now()->subHours(36))
-            ->orderBy('id')
-            ->limit(40)
+            ->orderByDesc('id')
+            ->limit(150)
             ->get();
 
         $closed = 0;

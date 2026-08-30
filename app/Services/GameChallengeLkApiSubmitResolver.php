@@ -69,7 +69,7 @@ class GameChallengeLkApiSubmitResolver
      */
     public function settleFromOfficialApi(GameChallenge $game_challenge): bool
     {
-        if ($game_challenge->isKingLinked()) {
+        if ($game_challenge->isCrossPlatformKingGame()) {
             return false;
         }
 
@@ -187,7 +187,12 @@ class GameChallengeLkApiSubmitResolver
         $lastId = null;
         $result = null;
 
-        for ($attempt = 1; $attempt <= 2; $attempt++) {
+        # Ludo King is eventually consistent, so a second look a moment later often
+        # sees the winner. Only wait on CLI (cron); a player's request must not
+        # hang for 2s when the every-minute sync will retry anyway.
+        $attempts = app()->runningInConsole() ? 2 : 1;
+
+        for ($attempt = 1; $attempt <= $attempts; $attempt++) {
             foreach ($ids as $gameId) {
                 $raw = $this->lk->gameStatus($gameId);
                 if ($raw === null) {
@@ -208,7 +213,7 @@ class GameChallengeLkApiSubmitResolver
                 }
             }
 
-            if ($attempt === 1) {
+            if ($attempt < $attempts) {
                 usleep(2_000_000);
             }
         }

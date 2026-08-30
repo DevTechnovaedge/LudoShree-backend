@@ -80,6 +80,34 @@ class GameChallenge extends Model
     }
 
     /**
+     * A real cross-platform game: one seat belongs to a Daddy King ghost, so the
+     * result and money live on the other platform.
+     *
+     * Almost every local table is also published to the King network and gets a
+     * king_table_id, so isKingLinked() must NOT be used to decide whether the
+     * official Ludo King result may settle a game - that blocked auto-settle for
+     * local-vs-local matches.
+     */
+    public function isCrossPlatformKingGame(): bool
+    {
+        if ($this->game_source === 'daddy_king') {
+            return true;
+        }
+
+        $ids = array_filter([(int) $this->challenger_id, (int) $this->opponent_id]);
+
+        if ($ids === []) {
+            return false;
+        }
+
+        return User::query()
+            ->withoutGlobalScopes()
+            ->whereIn('id', $ids)
+            ->where('is_king_player', 1)
+            ->exists();
+    }
+
+    /**
      * Stake one player must pay to join / create (entry fee, not the pot).
      *
      * After accept, `amount` becomes pot (2x entry). Waiting tables should keep
