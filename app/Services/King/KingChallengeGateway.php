@@ -84,7 +84,11 @@ class KingChallengeGateway
             return ['status' => false, 'message' => 'Invalid table amount. Please try another one.'];
         }
 
-        if ($entryFee > (float) $freshUser->total_wallet_amount) {
+        if ($entryFee > app(\App\Services\WalletService::class)->availableToStake([
+            'game' => (float) $freshUser->game_wallet_amount,
+            'win' => (float) $freshUser->win_wallet_amount,
+            'total' => (float) $freshUser->total_wallet_amount,
+        ])) {
             unlock_game_challenge($challenge);
 
             return ['status' => false, 'message' => 'Insufficient Balance'];

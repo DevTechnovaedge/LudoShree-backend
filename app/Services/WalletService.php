@@ -63,6 +63,26 @@ class WalletService
     }
 
     /**
+     * Cash that may be put on a table.
+     *
+     * A minus in one wallet is not spendable, and it also reduces net cash, so
+     * a hole cannot be ignored by draining the other wallet. Example: game -20
+     * and win 25.40 → available 5.40, not 25.40.
+     *
+     * @param  array{game: float, win: float, total: float}|null  $balances
+     */
+    public function availableToStake(?array $balances): float
+    {
+        if (! $balances) {
+            return 0.0;
+        }
+
+        $positive = max(0.0, $balances['game']) + max(0.0, $balances['win']);
+
+        return round(min($positive, $balances['total']), 2);
+    }
+
+    /**
      * Stake for create/accept: take game wallet first, then win wallet.
      * Uses atomic column updates so a refund that landed in this same
      * request cannot be overwritten by a stale User::save().
@@ -76,12 +96,18 @@ class WalletService
 
         $runner = function () use ($userId, $amount, $ledger, $quiet) {
             $balances = $this->balances($userId);
-            if (! $balances || ($balances['total'] + 0.001) < $amount) {
+            if (! $balances || ($this->availableToStake($balances) + 0.001) < $amount) {
                 return false;
             }
 
-            $fromGame = round(min($balances['game'], $amount), 2);
+            // Never let a negative game wallet inflate the win debit
+            // (min(-20, 12) = -20 → win debit 32 on a 12 table).
+            $fromGame = round(min(max(0.0, $balances['game']), $amount), 2);
             $fromWin = round($amount - $fromGame, 2);
+
+            if ($fromWin - 0.001 > max(0.0, $balances['win'])) {
+                return false;
+            }
 
             if ($fromGame > 0 && ! $this->debit($userId, 'game', $fromGame, $ledger, $quiet, true)) {
                 return false;

@@ -91,8 +91,13 @@ class KingSettlementService
             }
 
             $lockedJoiner = User::query()->withoutGlobalScopes()->lockForUpdate()->find($joiner->id);
+            $walletService = app(\App\Services\WalletService::class);
             $available = $lockedJoiner
-                ? ((float) $lockedJoiner->game_wallet_amount + (float) $lockedJoiner->win_wallet_amount)
+                ? $walletService->availableToStake([
+                    'game' => (float) $lockedJoiner->game_wallet_amount,
+                    'win' => (float) $lockedJoiner->win_wallet_amount,
+                    'total' => (float) $lockedJoiner->game_wallet_amount + (float) $lockedJoiner->win_wallet_amount,
+                ])
                 : 0.0;
 
             if (! $lockedJoiner || $available < $fee) {

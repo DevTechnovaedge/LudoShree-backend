@@ -900,7 +900,11 @@ class ApiController extends Controller
                 # Insufficient Balance
                 # ===========================================================================
 
-                if ($amount > $user->total_wallet_amount) {
+                if ($amount > app(WalletService::class)->availableToStake([
+                    'game' => (float) $user->game_wallet_amount,
+                    'win' => (float) $user->win_wallet_amount,
+                    'total' => (float) $user->total_wallet_amount,
+                ])) {
                     unlock_game_challenge($game_challenge);
                     return response()->json(['status' => false, 'message' => 'Insufficient Balance']);
                 }
@@ -1084,7 +1088,12 @@ class ApiController extends Controller
                         return;
                     }
 
-                    $available = (float) $lockedUser->game_wallet_amount + (float) $lockedUser->win_wallet_amount;
+                    $walletService = app(WalletService::class);
+                    $available = $walletService->availableToStake([
+                        'game' => (float) $lockedUser->game_wallet_amount,
+                        'win' => (float) $lockedUser->win_wallet_amount,
+                        'total' => (float) $lockedUser->game_wallet_amount + (float) $lockedUser->win_wallet_amount,
+                    ]);
                     if ($opponent_game_fee > $available) {
                         $insufficientBalance = true;
 
@@ -1094,7 +1103,6 @@ class ApiController extends Controller
                     $waitingDismiss->dismissWaitingGamesForChallenger($lockedChallenge->challenger_id, $lockedChallenge->id);
                     $waitingDismiss->dismissWaitingGamesForChallenger($user->id);
 
-                    $walletService = app(WalletService::class);
                     $debited = $walletService->debitEntryStake((int) $lockedUser->id, $opponent_game_fee, [
                         'game_challenge_id' => $lockedChallenge->id,
                         'remark' => "Challenge accepted. Ref: $lockedChallenge->uid",
