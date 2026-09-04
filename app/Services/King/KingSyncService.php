@@ -467,18 +467,10 @@ class KingSyncService
         );
 
         // Same commission maths as a locally created challenge.
-        $totalAmount = $amount * 2;
-        $gameCommission = 0;
-        if ($amount >= 1 && $amount < 99) {
-            $gameCommission = game_commission_slot()->slot_1_to_99;
-        } elseif ($amount >= 100 && $amount < 499) {
-            $gameCommission = game_commission_slot()->slab_100_to_499;
-        } elseif ($amount >= 500) {
-            $gameCommission = game_commission_slot()->slab_500_to_above;
-        }
-
-        $gameCommissionAmount = $gameCommission ? ($amount * $gameCommission) / 100 : $totalAmount;
-        $paidAmount = ($totalAmount == $gameCommissionAmount) ? $totalAmount : $totalAmount - $gameCommissionAmount;
+        $commission = resolve_game_commission($amount);
+        $gameCommission = $commission['percent'];
+        $gameCommissionAmount = $commission['amount'];
+        $paidAmount = $commission['paid_amount'];
 
         $challenge = GameChallenge::create([
             'uid' => generate_uid(),

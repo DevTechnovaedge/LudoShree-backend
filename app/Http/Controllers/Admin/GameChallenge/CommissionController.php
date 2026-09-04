@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\GameChallenge\CommissionHistory;
 use App\Models\GameChallenge\GameCommissionSlot;
 use App\Models\User;
+use Illuminate\Support\Facades\Cache;
 
 class CommissionController extends Controller
 {
@@ -250,6 +251,8 @@ class CommissionController extends Controller
                                                     'refer_commission'      => request()->refer_commission,
                                                 ]
                                             );
+        Cache::forget('game_commission_slot');
+
         if ($result) :
             $back_msg                            =   "<div class='alert alert-success'>Record udpated successfully </div>";
         else :

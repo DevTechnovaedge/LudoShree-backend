@@ -176,6 +176,41 @@ if (!function_exists('game_commission_slot')) {
   }
 }
 
+/**
+ * Admin slabs are inclusive: 1–99, 100–499, 500+.
+ * Commission is taken from one entry fee, then clipped from the pot.
+ *
+ * @return array{percent: float, amount: float, paid_amount: float, total: float}
+ */
+if (!function_exists('resolve_game_commission')) {
+  function resolve_game_commission(float $amount): array
+  {
+    $amount = round($amount, 2);
+    $total = round($amount * 2, 2);
+    $percent = 0.0;
+    $slot = game_commission_slot();
+
+    if ($slot && $amount >= 1) {
+      if ($amount <= 99) {
+        $percent = (float) $slot->slot_1_to_99;
+      } elseif ($amount <= 499) {
+        $percent = (float) $slot->slab_100_to_499;
+      } else {
+        $percent = (float) $slot->slab_500_to_above;
+      }
+    }
+
+    $commissionAmount = $percent > 0 ? round(($amount * $percent) / 100, 2) : 0.0;
+
+    return [
+      'percent' => $percent,
+      'amount' => $commissionAmount,
+      'paid_amount' => round($total - $commissionAmount, 2),
+      'total' => $total,
+    ];
+  }
+}
+
 if (!function_exists('generate_uid')) {
   function generate_uid(){
     return 'LH'.strtoupper(str()->random(7));

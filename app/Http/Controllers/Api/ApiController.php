@@ -909,22 +909,11 @@ class ApiController extends Controller
                 # Calculate Total Amount and Game Commission
                 # ===========================================================================
 
-                $total_amount = $amount * 2;
-
-                $game_commission = 0;
-                if ($amount >= 1 && $amount < 99) {
-                    $game_commission = game_commission_slot()->slot_1_to_99;
-                } elseif ($amount >= 100 && $amount < 499) {
-                    $game_commission = game_commission_slot()->slab_100_to_499;
-                } elseif ($amount >= 500) {
-                    $game_commission = game_commission_slot()->slab_500_to_above;
-                }
-
-                // $game_commission_amount = $game_commission ? ($amount * $game_commission) / 100 : $amount;
-                // $paid_amount = $total_amount - $game_commission_amount;
-
-              $game_commission_amount = $game_commission ? ($amount * $game_commission) / 100 : $total_amount;
-                $paid_amount = ($total_amount == $game_commission_amount) ? $total_amount : $total_amount - $game_commission_amount;
+                $commission = resolve_game_commission((float) $amount);
+                $total_amount = $commission['total'];
+                $game_commission = $commission['percent'];
+                $game_commission_amount = $commission['amount'];
+                $paid_amount = $commission['paid_amount'];
                 # ===========================================================================
                 # Prepare Game Challenge Data
                 # ===========================================================================
