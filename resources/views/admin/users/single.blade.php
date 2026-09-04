@@ -612,55 +612,31 @@
                                                                 <tr>
                                                                     <td>{{ $loop->iteration }}</td>
                                                                     <td>{{ $wallet_record->remark }}</td>
+                                                                    @php
+                                                                        $is_debit = $wallet_record->type === 'debit';
+                                                                        $amount_badge_class = $is_debit ? 'bg-danger' : 'bg-success';
+                                                                        $amount_prefix = $is_debit ? '-' : '+';
+
+                                                                        if (! $is_debit && $wallet_record->transaction_id) {
+                                                                            if ((int) $wallet_record->status === 0) {
+                                                                                $amount_badge_class = 'bg-warning';
+                                                                            } elseif ((int) $wallet_record->status === 2) {
+                                                                                $amount_badge_class = 'bg-danger';
+                                                                            } elseif ((int) $wallet_record->status === 5) {
+                                                                                $amount_badge_class = 'bg-secondary';
+                                                                            }
+                                                                        }
+
+                                                                        $amount_html = '<span class="'.$amount_badge_class.' p-2">'.$amount_prefix.' '.$wallet_record->amount.'</span>';
+                                                                    @endphp
                                                                     <td>
                                                                         @if($wallet_record->wallet_type == 'game')
-                                                                               @if($wallet_record->type == 'debit')
-                                                                                  <span class="bg-danger p-2">- {{ $wallet_record->amount }}</span>
-                                                                               @endif
-                                                                               
-                                                                               @if($wallet_record->type == 'credit')
-                                                                               @php
-                                                                                    $win_status     =  'bg-warning';
-                                                                                    $win_status_icon     =  "🕒";
-                        
-                                                                                    if( $wallet_record->status == 1 ):
-                                                                                        $win_status     =  'bg-success';
-                                                                                        $win_status_icon     =  "✔️";
-                                                                                    endif;
-                                                                                    
-                                                                                    if( $wallet_record->status == 2 ):
-                                                                                        $win_status     =  'bg-danger';
-                                                                                        $win_status_icon     =  "❌";
-                                                                                    endif;
-                                                                               @endphp
-                                                                               <!-- $win_status_icon     =  "✔️"; -->
-                                                                               <span class="{{ $win_status }} p-2">{!! $win_status_icon !!} {{ $wallet_record->amount }}</span>
-                                                                            @endif
+                                                                            {!! $amount_html !!}
                                                                         @endif
                                                                      </td>
                                                                     <td>
                                                                         @if($wallet_record->wallet_type == 'win')
-                                                                            @if($wallet_record->type == 'debit')
-                                                                            @php
-                                                                                    $win_status     =  'bg-warning';
-                                                                                    $win_status_icon     =  "🕒";
-                        
-                                                                                    if( $wallet_record->status == 1 ):
-                                                                                        $win_status     =  'bg-success';
-                                                                                        $win_status_icon     =  "✔️";
-                                                                                    endif;
-                                                                                    
-                                                                                    if( $wallet_record->status == 2 ):
-                                                                                        $win_status     =  'bg-danger';
-                                                                                        $win_status_icon     =  "❌";
-                                                                                    endif;
-                                                                               @endphp
-                                                                              <span class="{{ $win_status }} p-2">{!! $win_status_icon !!} {{ $wallet_record->amount }}</span>
-                                                                            @endif
-                                                                               
-                                                                            @if($wallet_record->type == 'credit')
-                                                                            <span class="bg-success p-2">+ {{ $wallet_record->amount }}</span>
-                                                                            @endif
+                                                                            {!! $amount_html !!}
                                                                         @endif
                                                                     </td>
                                                                     <td>
