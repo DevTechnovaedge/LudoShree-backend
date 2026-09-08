@@ -60,6 +60,7 @@ class SiteSetting extends Model
         'all_withdrawal_status',
         'all_refer_status',
         'ulta_ludo_status',
+        'lk_room_code_validation',
         'without_kyc_withdrawal_limit',
         'rules',
         'privacy_policy',

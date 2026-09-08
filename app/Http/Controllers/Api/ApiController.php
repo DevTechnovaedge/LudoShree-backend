@@ -1454,11 +1454,12 @@ class ApiController extends Controller
                     return response()->json(['status' => false, 'message' => 'Roomcode already added.']);
                 endif;
 
-                # LK Game API: validate room code and capture Mongo game_id for later /game-status calls
+                # LK Game API: validate room code and capture Mongo game_id for later /game-status calls.
+                # Admin can turn this off; the typed room code is then saved as-is.
                 $lk = app(LkGameApiService::class);
                 $check = null;
                 $ludoKingGameIdForDb = $roomcode;
-                if ($lk->apiKey() !== '' && $lk->baseUrl() !== '') {
+                if (lk_room_code_validation_enabled() && $lk->apiKey() !== '' && $lk->baseUrl() !== '') {
                     $check = $lk->checkRoom($roomcode);
                     if (! $check || ! $lk->isCheckRoomValid($check)) {
                         unlock_game_challenge($game_challenge);

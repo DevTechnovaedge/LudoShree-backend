@@ -400,6 +400,19 @@
                                             </div>
                                             <!-- End Without kyc withdrawal limit -->
 
+                                            <!-- Ludo King room code validation -->
+                                            <div class="col-md-3">
+                                                <div class="form-group">
+                                                    <label for="lk_room_code_validation">Ludo King room code check</label>
+                                                    <select type="text" class="form-control {{ ((int) ($sitesetting->lk_room_code_validation ?? 1) === 1) ? 'border-success' : 'border-danger' }}" id="lk_room_code_validation" name="lk_room_code_validation">
+                                                        <option value="1" {{ (int) old('lk_room_code_validation', $sitesetting->lk_room_code_validation ?? 1) === 1 ? 'selected' : '' }}>Active</option>
+                                                        <option value="0" {{ (int) old('lk_room_code_validation', $sitesetting->lk_room_code_validation ?? 1) === 0 ? 'selected' : '' }}>Deactive</option>
+                                                    </select>
+                                                    <small class="text-muted">When active, room code is checked on Ludo King before it is saved.</small>
+                                                </div>
+                                            </div>
+                                            <!-- End Ludo King room code validation -->
+
                                             <!-- Ulta Ludo -->
                                             <div class="col-md-3">
                                                 <div class="form-group">

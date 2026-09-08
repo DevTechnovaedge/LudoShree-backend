@@ -406,6 +406,22 @@ if (!function_exists('site_setting')) {
     return Cache::remember('site_setting', 300, fn () => SiteSetting::first());
   }
 }
+
+/**
+ * Admin toggle: validate room codes against the Ludo King API on add.
+ * Default on when the setting is missing or unset.
+ */
+if (!function_exists('lk_room_code_validation_enabled')) {
+  function lk_room_code_validation_enabled(): bool
+  {
+    $setting = site_setting();
+    if (! $setting || ! isset($setting->lk_room_code_validation)) {
+      return true;
+    }
+
+    return (int) $setting->lk_room_code_validation === 1;
+  }
+}
 # End Site Settings
 
 if (!function_exists('custom_array_pluck')) {
