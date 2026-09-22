@@ -3439,9 +3439,6 @@ class ApiController extends Controller
     # Challenge
     public function game_challenge()
     {
-        $arr                    =   [];
-
-
         $validator                  =   Validator::make(request()->all(), [
             'id'                    =>  'required',
         ]);
@@ -3455,39 +3452,44 @@ class ApiController extends Controller
 
         $id                     =   request()->id;
 
-        $game_challenge         =   GameChallenge::select(
-            'id',
-            'uid',
-            'game_type_id',
-            'roomcode',
-            'amount',
-            'paid_amount',
-            'challenger_amount',
-            'challenger_id',
-            'opponent_id',
-            'challenger_status',
-            'opponent_status',
-            'status'
-        )->whereId($id)->first();
+        try {
+            $game_challenge = GameChallenge::query()
+                ->with(['game_type', 'challenger', 'opponent'])
+                ->whereId($id)
+                ->first();
 
+            if (! $game_challenge) {
+                \Log::warning('game-challenge not found', [
+                    'id' => $id,
+                    'user_id' => optional($this->user())->id,
+                ]);
 
-        if ($game_challenge) :
+                return response()->json([
+                    'status' => false,
+                    'message' => 'No records found',
+                    'data' => null,
+                ]);
+            }
 
-            $arr =  [
-                'status'            => true,
-                'message'           => 'Successfully records fetched',
-                'data'              => new GameChallengeResource($game_challenge),
-                'user'              => new UserResource($this->user())
-
-            ];
-        else :
-            $arr =  [
+            return response()->json([
                 'status' => true,
-                'message' => 'No records found'
-            ];
-        endif;
+                'message' => 'Successfully records fetched',
+                'data' => new GameChallengeResource($game_challenge),
+                'user' => new UserResource($this->user()),
+            ]);
+        } catch (\Throwable $e) {
+            \Log::error('game-challenge load failed', [
+                'id' => $id,
+                'user_id' => optional($this->user())->id,
+                'error' => $e->getMessage(),
+            ]);
 
-        return response()->json($arr);
+            return response()->json([
+                'status' => false,
+                'message' => 'Unable to load challenge data',
+                'data' => null,
+            ]);
+        }
     }
     # End Challenge
 

@@ -75,21 +75,23 @@ class UserResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $mobileDigits = preg_replace('/\D+/', '', (string) ($this->mobile ?? '')) ?? '';
+
         return [
-                'id'                    => $this->id,
-                "uid"                   => $this->uid,
-                "name"                  => $this->name,
-                "email"                 => $this->email,
-                "mobile"                => $this->mobile,
-                "win_wallet_amount"     => $this->win_wallet_amount,
-                "game_wallet_amount"    => $this->game_wallet_amount,
-                "total_wallet_amount"   => $this->total_wallet_amount,
-                "fcm_device_token"      => $this->fcm_device_token,
-                "refer_code"            => $this->refer_code,
-                "profile_url"           => $this->profile_url,
-                "game_play_count"       => $this->game_play_count,
-                "status"                => $this->status,
-                "status_label"          => $this->status_label,
+                'id'                    => (int) $this->id,
+                "uid"                   => (string) ($this->uid ?? ''),
+                "name"                  => $this->name !== null ? (string) $this->name : null,
+                "email"                 => $this->email !== null ? (string) $this->email : null,
+                "mobile"                => $mobileDigits !== '' ? (int) $mobileDigits : 0,
+                "win_wallet_amount"     => (float) ($this->win_wallet_amount ?? 0),
+                "game_wallet_amount"    => (float) ($this->game_wallet_amount ?? 0),
+                "total_wallet_amount"   => (float) ($this->total_wallet_amount ?? 0),
+                "fcm_device_token"      => $this->fcm_device_token !== null ? (string) $this->fcm_device_token : null,
+                "refer_code"            => $this->refer_code !== null ? (string) $this->refer_code : null,
+                "profile_url"           => (string) ($this->profile_url ?? ''),
+                "game_play_count"       => (int) ($this->game_play_count ?? 0),
+                "status"                => (int) ($this->status ?? 0),
+                "status_label"          => (string) ($this->status_label ?? ''),
 
                 "game_win_count"        => $this->game_win_count,
                 "game_lose_count"        => $this->game_lose_count,
@@ -99,8 +101,8 @@ class UserResource extends JsonResource
                     ?? $this->generated_refer_commission_amount
                     ?? 0
                 ), 2),
-                "kyc_status"            => $this->kyc_status,
-                "kyc_status_label"      => $this->kyc_status_label,
+                "kyc_status"            => (int) ($this->kyc_status ?? 0),
+                "kyc_status_label"      => (string) ($this->kyc_status_label ?? ''),
 
                 "is_profile_updated"      => $this->is_profile_updated,
 
