@@ -45,23 +45,29 @@ class RegistrationWelcomeBonusService
                     ->exists();
 
                 if ($alreadyGranted) {
+                    User::withoutGlobalScope('verified_mobile')
+                        ->whereKey($lockedUser->id)
+                        ->update(['registration_bonus_pending' => false]);
+
                     return false;
                 }
 
-                $newBalance = (float) $lockedUser->game_wallet_amount + $amount;
-                $lockedUser->game_wallet_amount = $newBalance;
-                $lockedUser->registration_bonus_pending = false;
-                $lockedUser->save();
-
-                Wallet::create([
-                    'user_id' => $lockedUser->id,
-                    'type' => 'credit',
-                    'wallet_type' => 'game',
+                // Credit through WalletService so the ledger snapshot is the
+                // real post-credit total. Saving the user first and leaving
+                // win_and_game_total_amount empty made WalletObserver add
+                // the ₹15 a second time (history showed 30).
+                $credited = app(WalletService::class)->credit((int) $lockedUser->id, 'game', $amount, [
                     'remark' => self::REMARK,
-                    'amount' => $amount,
-                    'total_balance' => $newBalance,
                     'status' => 1,
                 ]);
+
+                if (! $credited) {
+                    return false;
+                }
+
+                User::withoutGlobalScope('verified_mobile')
+                    ->whereKey($lockedUser->id)
+                    ->update(['registration_bonus_pending' => false]);
 
                 $this->notifyUser($lockedUser, $amount);
 

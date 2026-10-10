@@ -82,6 +82,11 @@ class WalletService
         return round(min($positive, $balances['total']), 2);
     }
 
+    public function availableToStakeForUser(int $userId): float
+    {
+        return $this->availableToStake($this->balances($userId));
+    }
+
     /**
      * Stake for create/accept: take game wallet first, then win wallet.
      * Uses atomic column updates so a refund that landed in this same
@@ -162,7 +167,7 @@ class WalletService
             return false;
         }
 
-        $affected = User::query()->withoutGlobalScopes()->whereKey($userId)->increment($column, $amount);
+        $affected = $this->adjustMoneyColumn($userId, $column, $amount, 'credit', false);
 
         if (! $affected) {
             Log::warning('[Wallet] column bump matched no user row', [
@@ -186,17 +191,7 @@ class WalletService
         $column = $walletType === 'win' ? 'win_wallet_amount' : 'game_wallet_amount';
 
         $runner = function () use ($userId, $walletType, $column, $amount, $type, $ledger, $quiet, $requireFunds) {
-            $query = User::query()->withoutGlobalScopes()->whereKey($userId);
-
-            if ($type === 'debit' && $requireFunds) {
-                // Check and deduct in one statement, so a balance that dropped
-                // after the caller's own check cannot go negative.
-                $query->where($column, '>=', $amount);
-            }
-
-            $affected = $type === 'debit'
-                ? $query->decrement($column, $amount)
-                : $query->increment($column, $amount);
+            $affected = $this->adjustMoneyColumn($userId, $column, $amount, $type, $requireFunds);
 
             if (! $affected) {
                 Log::warning('[Wallet] balance update matched no user row', [
@@ -248,5 +243,31 @@ class WalletService
             'win' => round($win, 2),
             'total' => round($game + $win, 2),
         ];
+    }
+
+    /**
+     * DOUBLE wallet columns store values like 8.399999999999977. Comparing
+     * that with >= 8.40 rejects a debit even though the user has ₹8.40.
+     * ROUND to paise on both the guard and the write so dust cannot block play.
+     */
+    private function adjustMoneyColumn(int $userId, string $column, float $amount, string $type, bool $requireFunds): int
+    {
+        $allowed = ['game_wallet_amount', 'win_wallet_amount', 'refer_wallet_amount'];
+        if (! in_array($column, $allowed, true)) {
+            throw new \InvalidArgumentException('Invalid wallet column');
+        }
+
+        $amount = round(abs($amount), 2);
+        $delta = $type === 'debit' ? -$amount : $amount;
+
+        $sql = "UPDATE users SET `{$column}` = ROUND(`{$column}` + ?, 2) WHERE id = ?";
+        $bindings = [$delta, $userId];
+
+        if ($type === 'debit' && $requireFunds) {
+            $sql .= " AND ROUND(`{$column}`, 2) >= ?";
+            $bindings[] = $amount;
+        }
+
+        return (int) DB::update($sql, $bindings);
     }
 }

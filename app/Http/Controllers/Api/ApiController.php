@@ -900,11 +900,7 @@ class ApiController extends Controller
                 # Insufficient Balance
                 # ===========================================================================
 
-                if ($amount > app(WalletService::class)->availableToStake([
-                    'game' => (float) $user->game_wallet_amount,
-                    'win' => (float) $user->win_wallet_amount,
-                    'total' => (float) $user->total_wallet_amount,
-                ])) {
+                if ($amount > app(WalletService::class)->availableToStakeForUser((int) $user->id)) {
                     unlock_game_challenge($game_challenge);
                     return response()->json(['status' => false, 'message' => 'Insufficient Balance']);
                 }
@@ -1089,11 +1085,7 @@ class ApiController extends Controller
                     }
 
                     $walletService = app(WalletService::class);
-                    $available = $walletService->availableToStake([
-                        'game' => (float) $lockedUser->game_wallet_amount,
-                        'win' => (float) $lockedUser->win_wallet_amount,
-                        'total' => (float) $lockedUser->game_wallet_amount + (float) $lockedUser->win_wallet_amount,
-                    ]);
+                    $available = $walletService->availableToStakeForUser((int) $lockedUser->id);
                     if ($opponent_game_fee > $available) {
                         $insufficientBalance = true;
 
