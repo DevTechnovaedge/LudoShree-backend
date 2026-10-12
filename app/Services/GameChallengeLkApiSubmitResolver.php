@@ -97,8 +97,10 @@ class GameChallengeLkApiSubmitResolver
             return false;
         }
 
-        $fetched = $this->fetchOfficialFinishedResult($game_challenge);
-        if ($fetched === null) {
+        $fetched = $this->fetchOfficialSnapshot($game_challenge);
+        if ($fetched === null
+            || $fetched['state'] !== 'finished'
+            || $fetched['side'] === null) {
             return false;
         }
 
@@ -165,12 +167,101 @@ class GameChallengeLkApiSubmitResolver
     }
 
     /**
+     * Win/Lose tap: pay only when LK says Finished + winner. If the official
+     * game is still Running (or LK cannot be read), store the claim for admin
+     * and do not move wallet money.
+     */
+    public function applyPlayerResultClaim(
+        GameChallenge $game_challenge,
+        User $user,
+        string $claim,
+        ?string $screenshot
+    ): ?JsonResponse {
+        if ($game_challenge->isCrossPlatformKingGame()) {
+            return null;
+        }
+
+        if (! $game_challenge->roomcode || ! $game_challenge->opponent_id) {
+            return null;
+        }
+
+        if ($user->id != $game_challenge->challenger_id && $user->id != $game_challenge->opponent_id) {
+            return null;
+        }
+
+        if (in_array((int) $game_challenge->status, [4, 6, 7], true)) {
+            return response()->json([
+                'status' => false,
+                'message' => (int) $game_challenge->status === 4 ? 'Already completed' : 'Game already closed',
+            ]);
+        }
+
+        $claim = $claim === 'loser' ? 'loser' : 'winner';
+        $snapshot = $this->fetchOfficialSnapshot($game_challenge);
+
+        if ($snapshot
+            && $snapshot['state'] === 'finished'
+            && $snapshot['side'] !== null
+            && $this->settleFromOfficialApi($game_challenge)) {
+            $this->attachClaimScreenshot($game_challenge->id, $user->id, $screenshot);
+
+            event(new DemoEvent(''));
+
+            $freshChallenge = GameChallenge::with(['challenger', 'opponent'])->find($game_challenge->id);
+            $freshUser = User::query()->withoutGlobalScopes()->find($user->id);
+
+            Log::info('[LK player-submit] auto-settled from Finished result', [
+                'uid' => $game_challenge->uid,
+                'user_id' => $user->id,
+                'claim' => $claim,
+                'winner_side' => $snapshot['side'],
+            ]);
+
+            return response()->json([
+                'status' => true,
+                'message' => 'Result synced from official game server.',
+                'rules' => site_setting()->rules,
+                'data' => new GameChallengeResource($freshChallenge ?? $game_challenge),
+                'user' => new UserResource($freshUser ?? $user),
+            ]);
+        }
+
+        $this->sendClaimToAdminReview($game_challenge, $user, $claim, $screenshot, $snapshot);
+
+        event(new DemoEvent(''));
+
+        $freshChallenge = GameChallenge::with(['challenger', 'opponent'])->find($game_challenge->id);
+        $freshUser = User::query()->withoutGlobalScopes()->find($user->id);
+        $lkState = $snapshot['state'] ?? 'unknown';
+
+        $message = $lkState === 'running'
+            ? 'Ludo King game is still running. Result sent to admin for review.'
+            : 'Official result is not confirmed yet. Result sent to admin for review.';
+
+        Log::info('[LK player-submit] held for admin review', [
+            'uid' => $game_challenge->uid,
+            'user_id' => $user->id,
+            'claim' => $claim,
+            'lk_state' => $lkState,
+            'lk_side' => $snapshot['side'] ?? null,
+        ]);
+
+        return response()->json([
+            'status' => true,
+            'message' => $message,
+            'rules' => site_setting()->rules,
+            'data' => new GameChallengeResource($freshChallenge ?? $game_challenge),
+            'user' => new UserResource($freshUser ?? $user),
+        ]);
+    }
+
+    /**
      * Try stored mongo id AND room-code lookup. A stale hex id is the usual
      * reason some games skip auto-settle while others work.
      *
-     * @return array{raw: object, side: string, game_id: string}|null
+     * @return array{raw: object, side: ?string, state: string, game_id: string}|null
      */
-    private function fetchOfficialFinishedResult(GameChallenge $game_challenge): ?array
+    private function fetchOfficialSnapshot(GameChallenge $game_challenge): ?array
     {
         $ids = $this->candidateOfficialGameIds($game_challenge);
         if ($ids === []) {
@@ -185,11 +276,7 @@ class GameChallengeLkApiSubmitResolver
 
         $lastRaw = null;
         $lastId = null;
-        $result = null;
 
-        # Ludo King is eventually consistent, so a second look a moment later often
-        # sees the winner. Only wait on CLI (cron); a player's request must not
-        # hang for 2s when the every-minute sync will retry anyway.
         $attempts = app()->runningInConsole() ? 2 : 1;
 
         for ($attempt = 1; $attempt <= $attempts; $attempt++) {
@@ -206,10 +293,15 @@ class GameChallengeLkApiSubmitResolver
                     continue;
                 }
 
+                $state = $this->lk->officialMatchState($raw);
                 $side = $this->lk->winnerSide($raw);
-                if ($side !== null) {
-                    $result = ['raw' => $raw, 'side' => $side, 'game_id' => $gameId];
-                    break 2;
+
+                if ($state === 'finished' && $side !== null) {
+                    return ['raw' => $raw, 'side' => $side, 'state' => $state, 'game_id' => $gameId];
+                }
+
+                if ($lastRaw !== null) {
+                    // Keep looking at other ids, but remember this payload.
                 }
             }
 
@@ -218,19 +310,102 @@ class GameChallengeLkApiSubmitResolver
             }
         }
 
-        if ($result !== null) {
-            return $result;
+        if ($lastRaw === null || $lastId === null) {
+            Log::info('[LK auto-settle] skipped: no official payload', [
+                'uid' => $game_challenge->uid,
+                'tried_ids' => $ids,
+            ]);
+
+            return null;
         }
 
-        Log::info('[LK auto-settle] skipped: winner not ready', [
+        $state = $this->lk->officialMatchState($lastRaw);
+        $side = $this->lk->winnerSide($lastRaw);
+
+        Log::info('[LK auto-settle] official snapshot not payable yet', [
             'uid' => $game_challenge->uid,
             'tried_ids' => $ids,
             'last_game_id' => $lastId,
-            'game_status' => is_object($lastRaw) ? ($lastRaw->game_status ?? $lastRaw->status ?? null) : null,
-            'body_excerpt' => is_object($lastRaw) ? substr((string) json_encode($lastRaw), 0, 1200) : null,
+            'lk_state' => $state,
+            'game_status' => $lastRaw->game_status ?? $lastRaw->status ?? null,
+            'has_winner_side' => $side !== null,
+            'body_excerpt' => substr((string) json_encode($lastRaw), 0, 1200),
         ]);
 
-        return null;
+        return ['raw' => $lastRaw, 'side' => $side, 'state' => $state, 'game_id' => $lastId];
+    }
+
+    /**
+     * @param  array{raw: object, side: ?string, state: string, game_id: string}|null  $snapshot
+     */
+    private function sendClaimToAdminReview(
+        GameChallenge $game_challenge,
+        User $user,
+        string $claim,
+        ?string $screenshot,
+        ?array $snapshot
+    ): void {
+        DB::transaction(function () use ($game_challenge, $user, $claim, $screenshot, $snapshot): void {
+            $gc = GameChallenge::query()->lockForUpdate()->find($game_challenge->id);
+            if (! $gc || in_array((int) $gc->status, [4, 6, 7], true)) {
+                return;
+            }
+
+            if ($this->hasMainWinnerCredit($gc) || $this->fundsAlreadyRefunded($gc)) {
+                return;
+            }
+
+            $isChallenger = (int) $user->id === (int) $gc->challenger_id;
+            $sideStatus = $claim === 'loser' ? 2 : 1;
+
+            if ($isChallenger) {
+                $gc->challenger_status = $sideStatus;
+                if ($screenshot) {
+                    $gc->challenger_screenshot = $screenshot;
+                }
+                $gc->challenger_result_date = now();
+            } else {
+                $gc->opponent_status = $sideStatus;
+                if ($screenshot) {
+                    $gc->opponent_screenshot = $screenshot;
+                }
+                $gc->opponent_result_date = now();
+                $gc->opponent_date = now();
+            }
+
+            if ($snapshot && isset($snapshot['raw'])) {
+                $gc->ludo_king_result_details = json_encode($this->lk->normalizeForChallenge($snapshot['raw']));
+                if (isset($snapshot['game_id']) && preg_match('/^[a-f\d]{24}$/i', (string) $snapshot['game_id'])) {
+                    $gc->ludo_king_game_id = strtolower((string) $snapshot['game_id']);
+                }
+            }
+
+            $gc->status = 5;
+            $gc->is_lock = 0;
+            $gc->save();
+        });
+    }
+
+    private function attachClaimScreenshot(int $challengeId, int $userId, ?string $screenshot): void
+    {
+        if (! $screenshot) {
+            return;
+        }
+
+        $gc = GameChallenge::query()->find($challengeId);
+        if (! $gc) {
+            return;
+        }
+
+        if ((int) $gc->challenger_id === $userId) {
+            $gc->challenger_screenshot = $screenshot;
+        } elseif ((int) $gc->opponent_id === $userId) {
+            $gc->opponent_screenshot = $screenshot;
+        } else {
+            return;
+        }
+
+        $gc->save();
     }
 
     /**

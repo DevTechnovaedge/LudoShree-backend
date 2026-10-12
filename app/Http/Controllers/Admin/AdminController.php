@@ -269,7 +269,9 @@ class AdminController extends Controller
       ->first();
 
     $autoSettled = false;
-    if ($challenge && $lk->winnerSide($raw) !== null) {
+    if ($challenge
+        && $lk->officialMatchState($raw) === 'finished'
+        && $lk->winnerSide($raw) !== null) {
       $autoSettled = app(GameChallengeLkApiSubmitResolver::class)->settleFromOfficialApi($challenge);
       $challenge->refresh();
     }

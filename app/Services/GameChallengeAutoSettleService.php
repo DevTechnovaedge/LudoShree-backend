@@ -68,6 +68,14 @@ class GameChallengeAutoSettleService
                     return;
                 }
 
+                // Classic Ludo King games sitting in admin review must wait for
+                // the official Finished result. Matching Win+Lose taps must not pay.
+                if ((int) $row->status === 5
+                    && ! $row->isCrossPlatformKingGame()
+                    && ! empty($row->roomcode)) {
+                    return;
+                }
+
                 $challengerWins = $challengerStatus === 1 && $opponentStatus === 2;
                 $opponentWins = $challengerStatus === 2 && $opponentStatus === 1;
                 if (! $challengerWins && ! $opponentWins) {

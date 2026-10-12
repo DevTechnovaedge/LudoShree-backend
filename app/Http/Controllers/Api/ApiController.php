@@ -1536,15 +1536,6 @@ class ApiController extends Controller
                 # Only true cross-platform games (a King ghost holds one seat) are
                 # settled via the King network (ResultUpdateRequest). A local table
                 # that merely carries a king_table_id must still use the LK resolver.
-                if (! $game_challenge->isCrossPlatformKingGame()) {
-                    $lkSubmit = $this->tryLkOfficialResultSettlement($game_challenge, $user);
-                    if ($lkSubmit !== null) {
-                        unlock_game_challenge($game_challenge);
-
-                        return $lkSubmit;
-                    }
-                }
-
                 # ===========================================================================
                 #   Validation
                 # ===========================================================================
@@ -1596,6 +1587,16 @@ class ApiController extends Controller
                 # ===========================================================================
 
                 $proof_image                        =   uploadFile('proof_image', "proof/winner/$game_challenge->uid/");
+
+                if (! $game_challenge->isCrossPlatformKingGame()) {
+                    $lkSubmit = app(GameChallengeLkApiSubmitResolver::class)
+                        ->applyPlayerResultClaim($game_challenge, $user, 'winner', $proof_image);
+                    if ($lkSubmit !== null) {
+                        unlock_game_challenge($game_challenge);
+
+                        return $lkSubmit;
+                    }
+                }
 
                 # ===========================================================================
                 #   Game Status Condition
@@ -1798,16 +1799,6 @@ class ApiController extends Controller
                     return response()->json(['status' => false, 'message' => 'Roomcode not available']);
                 endif;
 
-                # Only true cross-platform games are settled via the King network.
-                if (! $game_challenge->isCrossPlatformKingGame()) {
-                    $lkSubmitLoser = $this->tryLkOfficialResultSettlement($game_challenge, $user);
-                    if ($lkSubmitLoser !== null) {
-                        unlock_game_challenge($game_challenge);
-
-                        return $lkSubmitLoser;
-                    }
-                }
-
                 # ===========================================================================
                 #   Validation
                 # ===========================================================================
@@ -1865,6 +1856,16 @@ class ApiController extends Controller
                 #   Proof Image
                 # ===========================================================================
                 $proof_image                            =   uploadFile('proof_image', "proof/loser/$game_challenge->uid/");
+
+                if (! $game_challenge->isCrossPlatformKingGame()) {
+                    $lkSubmitLoser = app(GameChallengeLkApiSubmitResolver::class)
+                        ->applyPlayerResultClaim($game_challenge, $user, 'loser', $proof_image);
+                    if ($lkSubmitLoser !== null) {
+                        unlock_game_challenge($game_challenge);
+
+                        return $lkSubmitLoser;
+                    }
+                }
 
                 # ===========================================================================
                 #  Game Status Condition

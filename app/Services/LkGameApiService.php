@@ -219,11 +219,56 @@ class LkGameApiService
     }
 
     /**
-     * True when game_status is terminal and payload tells who won (creator vs player in LK terms).
+     * True when Ludo King reports the match as over AND a winner can be read.
+     * Running games must not pay, even if tokens already look home.
      */
     public function isResolvedFinished(object $payload): bool
     {
-        return $this->winnerSide($payload) !== null;
+        return $this->officialMatchState($payload) === 'finished'
+            && $this->winnerSide($payload) !== null;
+    }
+
+    /**
+     * Lifecycle from LK game_status / status. Never guess a payout from "running".
+     *
+     * @return 'finished'|'running'|'unknown'
+     */
+    public function officialMatchState(object $payload): string
+    {
+        $raw = $payload->game_status
+            ?? $payload->gameStatus
+            ?? $payload->match_status
+            ?? $payload->matchStatus
+            ?? null;
+
+        if (! is_scalar($raw) || $raw === '') {
+            $top = $payload->status ?? null;
+            if (is_string($top) && ! is_numeric($top)) {
+                $raw = $top;
+            }
+        }
+
+        $s = strtolower(trim((string) $raw));
+        if ($s === '') {
+            return 'unknown';
+        }
+
+        if (in_array($s, [
+            'finished', 'destroyed', 'completed', 'complete',
+            'ended', 'closed', 'over', 'done',
+        ], true)) {
+            return 'finished';
+        }
+
+        if (in_array($s, [
+            'running', 'waiting', 'started', 'playing', 'inprogress',
+            'in_progress', 'in-progress', 'ongoing', 'live', 'created',
+            'pending', 'active',
+        ], true)) {
+            return 'running';
+        }
+
+        return 'unknown';
     }
 
     /**
