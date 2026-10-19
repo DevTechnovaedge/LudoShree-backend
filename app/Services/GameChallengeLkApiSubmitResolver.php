@@ -100,7 +100,8 @@ class GameChallengeLkApiSubmitResolver
         $fetched = $this->fetchOfficialSnapshot($game_challenge);
         if ($fetched === null
             || $fetched['state'] !== 'finished'
-            || $fetched['side'] === null) {
+            || $fetched['side'] === null
+            || ! $this->lk->isPayableOfficialResult($fetched['raw'])) {
             return false;
         }
 
@@ -202,6 +203,7 @@ class GameChallengeLkApiSubmitResolver
         if ($snapshot
             && $snapshot['state'] === 'finished'
             && $snapshot['side'] !== null
+            && $this->lk->isPayableOfficialResult($snapshot['raw'])
             && $this->settleFromOfficialApi($game_challenge)) {
             $this->attachClaimScreenshot($game_challenge->id, $user->id, $screenshot);
 
@@ -233,10 +235,15 @@ class GameChallengeLkApiSubmitResolver
         $freshChallenge = GameChallenge::with(['challenger', 'opponent'])->find($game_challenge->id);
         $freshUser = User::query()->withoutGlobalScopes()->find($user->id);
         $lkState = $snapshot['state'] ?? 'unknown';
+        $leftEarly = $snapshot && $this->lk->isLeaveWithoutCompletedGame($snapshot['raw']);
 
-        $message = $lkState === 'running'
-            ? 'Ludo King game is still running. Result sent to admin for review.'
-            : 'Official result is not confirmed yet. Result sent to admin for review.';
+        if ($lkState === 'abandoned' || $leftEarly) {
+            $message = 'Player left the Ludo King game. Result sent to admin for review.';
+        } elseif ($lkState === 'running') {
+            $message = 'Ludo King game is still running. Result sent to admin for review.';
+        } else {
+            $message = 'Official result is not confirmed yet. Result sent to admin for review.';
+        }
 
         Log::info('[LK player-submit] held for admin review', [
             'uid' => $game_challenge->uid,
@@ -296,7 +303,9 @@ class GameChallengeLkApiSubmitResolver
                 $state = $this->lk->officialMatchState($raw);
                 $side = $this->lk->winnerSide($raw);
 
-                if ($state === 'finished' && $side !== null) {
+                if ($state === 'finished'
+                    && $side !== null
+                    && $this->lk->isPayableOfficialResult($raw)) {
                     return ['raw' => $raw, 'side' => $side, 'state' => $state, 'game_id' => $gameId];
                 }
 
@@ -329,6 +338,7 @@ class GameChallengeLkApiSubmitResolver
             'lk_state' => $state,
             'game_status' => $lastRaw->game_status ?? $lastRaw->status ?? null,
             'has_winner_side' => $side !== null,
+            'left_without_finish' => $this->lk->isLeaveWithoutCompletedGame($lastRaw),
             'body_excerpt' => substr((string) json_encode($lastRaw), 0, 1200),
         ]);
 

@@ -219,19 +219,53 @@ class LkGameApiService
     }
 
     /**
-     * True when Ludo King reports the match as over AND a winner can be read.
-     * Running games must not pay, even if tokens already look home.
+     * True when Ludo King reports a real completed match we can pay.
+     * Leave / Destroyed / quit must not pay, even if LK names a winner.
      */
     public function isResolvedFinished(object $payload): bool
     {
+        return $this->isPayableOfficialResult($payload);
+    }
+
+    /**
+     * Pay only a played-out Finished game with a winner.
+     * Join-then-leave is Destroyed or isExit without four tokens home.
+     */
+    public function isPayableOfficialResult(object $payload): bool
+    {
         return $this->officialMatchState($payload) === 'finished'
-            && $this->winnerSide($payload) !== null;
+            && $this->winnerSide($payload) !== null
+            && ! $this->isLeaveWithoutCompletedGame($payload);
+    }
+
+    /**
+     * Player quit / table destroyed before a real finish. Do not auto-lose.
+     */
+    public function isLeaveWithoutCompletedGame(object $payload): bool
+    {
+        $exited = $this->lkBoolMeansTrue($payload->isExit ?? null)
+            || $this->lkBoolMeansTrue($payload->isAutoExit ?? null);
+
+        $status = strtolower(trim((string) (
+            $payload->game_status
+            ?? $payload->gameStatus
+            ?? $payload->match_status
+            ?? ''
+        )));
+        $destroyed = in_array($status, ['destroyed', 'abandoned', 'quit', 'left'], true);
+
+        if (! $exited && ! $destroyed) {
+            return false;
+        }
+
+        // Four tokens home means the match actually ended; the loser exiting after that is fine.
+        return $this->winnerFromTokenPositions($payload) === null;
     }
 
     /**
      * Lifecycle from LK game_status / status. Never guess a payout from "running".
      *
-     * @return 'finished'|'running'|'unknown'
+     * @return 'finished'|'running'|'abandoned'|'unknown'
      */
     public function officialMatchState(object $payload): string
     {
@@ -254,7 +288,14 @@ class LkGameApiService
         }
 
         if (in_array($s, [
-            'finished', 'destroyed', 'completed', 'complete',
+            'destroyed', 'abandoned', 'quit', 'left',
+            'cancelled', 'canceled',
+        ], true)) {
+            return 'abandoned';
+        }
+
+        if (in_array($s, [
+            'finished', 'completed', 'complete',
             'ended', 'closed', 'over', 'done',
         ], true)) {
             return 'finished';
